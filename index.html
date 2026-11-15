@@ -793,7 +793,7 @@ function buildHouse(g, S) {
     g.add(part);
     return part;
   };
-  slab(w - t * 2, 0.1 * scale, d - t * 2, 0, 0.05 * scale, 0);
+  slab(w - t * 2, 0.28 * scale, d - t * 2, 0, 0.26 * scale, 0);
   slab(t, h, d, -hw + t / 2, h / 2, 0);
   slab(t, h, d, hw - t / 2, h / 2, 0);
   slab(w, h, t, 0, h / 2, -hd + t / 2);
@@ -802,10 +802,10 @@ function buildHouse(g, S) {
   const rightSpan = hw - (doorX + doorW);
   if (rightSpan > 0.08) slab(rightSpan, h, t, hw - rightSpan / 2, h / 2, hd - t / 2);
   const step = mesh(new THREE.BoxGeometry(doorW + 0.2, 0.08 * scale, 0.36), trimMat);
-  step.position.set(doorX + doorW / 2, 0.04 * scale, hd + 0.12);
+  step.position.set(doorX + doorW / 2, 0.1 * scale, hd + 0.12);
   g.add(step);
-  const plinth = mesh(new THREE.BoxGeometry(w + 0.06, 0.1 * scale, d + 0.06), trimMat);
-  plinth.position.y = 0.05 * scale;
+  const plinth = mesh(new THREE.BoxGeometry(w + 0.06, 0.12 * scale, d + 0.06), trimMat);
+  plinth.position.y = 0.02 * scale;
   g.add(plinth);
   const thick = 0.11 * scale;
   const roof = mesh(new THREE.BoxGeometry(w * 1.1, thick, d * 1.1), roofMat);
@@ -847,8 +847,9 @@ function buildCastle(g) {
   const W = 32;
   const D = 24;
   const T = 0.7;
-  const H = 8;
-  const upper = 4.2;
+  const H = 12.6;
+  const mid = 4.2;
+  const top = 8.4;
   const hw = W / 2;
   const hd = D / 2;
   const stone = new THREE.MeshStandardMaterial({ color: 0x8a847c, roughness: 0.92 });
@@ -874,10 +875,13 @@ function buildCastle(g) {
   const span = (W - gap) / 2;
   addBox(span, H, T, -hw + span / 2, H / 2, 0, dark, { minX: -hw, maxX: -gap / 2, minZ: -T / 2, maxZ: T / 2 });
   addBox(span, H, T, hw - span / 2, H / 2, 0, dark, { minX: gap / 2, maxX: hw, minZ: -T / 2, maxZ: T / 2 });
-  addBox(gap, H - upper, T, 0, upper + (H - upper) / 2, 0, dark, null);
-  const stair = { minX: -5.4, maxX: -1.3, minZ: -10.4, maxZ: -2.2, base: 0.2, top: upper };
+  addBox(gap, 0.3, T, 0, mid - 0.15, 0, dark, null);
+  addBox(gap, 0.3, T, 0, top - 0.15, 0, dark, null);
+  addBox(gap, 0.3, T, 0, H - 0.15, 0, dark, null);
+  const stair1 = { minX: -5.4, maxX: -1.3, minZ: -10.4, maxZ: -2.2, base: 0.2, top: mid };
+  const stair2 = { minX: 1.3, maxX: 5.4, minZ: -10.4, maxZ: -2.2, base: mid, top: top };
   function roomWall(x) {
-    const z0 = stair.minZ;
+    const z0 = stair1.minZ;
     const backLen = -3.4 - z0;
     addBox(T, H, backLen, x, H / 2, (z0 + -3.4) / 2, dark, { minX: x - T / 2, maxX: x + T / 2, minZ: z0, maxZ: -3.4 });
     addBox(T, H, 3.4, x, H / 2, -1.7, dark, { minX: x - T / 2, maxX: x + T / 2, minZ: -3.4, maxZ: 0 });
@@ -885,25 +889,38 @@ function buildCastle(g) {
   roomWall(-8);
   roomWall(8);
   addBox(W - T * 2, 0.16, D - T * 2, 0, 0.08, 0, floorMat, null);
-  const steps = 12;
-  const tread = (stair.maxZ - stair.minZ) / steps;
-  const stairW = stair.maxX - stair.minX;
-  for (let i = 0; i < steps; i++) {
-    const z = stair.maxZ - tread * (i + 0.5);
-    const y = stair.base + ((i + 1) / steps) * (stair.top - stair.base);
-    addBox(stairW, 0.22, tread + 0.04, (stair.minX + stair.maxX) / 2, y, z, stone, null);
+  function addStair(s) {
+    const steps = 12;
+    const tread = (s.maxZ - s.minZ) / steps;
+    const stairW = s.maxX - s.minX;
+    for (let i = 0; i < steps; i++) {
+      const z = s.maxZ - tread * (i + 0.5);
+      const y = s.base + ((i + 1) / steps) * (s.top - s.base);
+      addBox(stairW, 0.22, tread + 0.04, (s.minX + s.maxX) / 2, y, z, stone, null);
+    }
   }
-  const floorZ0 = -hd + T;
-  const floorDepth = stair.minZ - floorZ0;
-  addBox(W - T * 2, 0.24, floorDepth, 0, upper, (floorZ0 + stair.minZ) / 2, floorMat, null);
+  function addFloor(y, hole) {
+    const x0 = -hw + T;
+    const x1 = hw - T;
+    const z0 = -hd + T;
+    const z1 = hd - T;
+    addBox(hole.minX - x0, 0.24, z1 - z0, (x0 + hole.minX) / 2, y, (z0 + z1) / 2, floorMat, null);
+    addBox(x1 - hole.maxX, 0.24, z1 - z0, (hole.maxX + x1) / 2, y, (z0 + z1) / 2, floorMat, null);
+    addBox(hole.maxX - hole.minX, 0.24, hole.minZ - z0, (hole.minX + hole.maxX) / 2, y, (z0 + hole.minZ) / 2, floorMat, null);
+    addBox(hole.maxX - hole.minX, 0.24, z1 - hole.maxZ, (hole.minX + hole.maxX) / 2, y, (hole.maxZ + z1) / 2, floorMat, null);
+  }
+  addStair(stair1);
+  addStair(stair2);
+  addFloor(mid, stair1);
+  addFloor(top, stair2);
   const corners = [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]];
   for (let i = 0; i < corners.length; i++) {
     const cx = corners[i][0];
     const cz = corners[i][1];
-    const shaft = mesh(new THREE.CylinderGeometry(2.15, 2.45, 13, 8), stone);
-    shaft.position.set(cx, 6.5, cz);
+    const shaft = mesh(new THREE.CylinderGeometry(2.15, 2.45, 16.5, 8), stone);
+    shaft.position.set(cx, 8.25, cz);
     const cap = mesh(new THREE.ConeGeometry(2.8, 3.2, 8), roofMat);
-    cap.position.set(cx, 14.2, cz);
+    cap.position.set(cx, 18.1, cz);
     g.add(shaft, cap);
     blocks.push({ minX: cx - 2.2, maxX: cx + 2.2, minZ: cz - 2.2, maxZ: cz + 2.2 });
   }
@@ -914,7 +931,11 @@ function buildCastle(g) {
     addBox(0.85, 0.75, 0.7, x, H + 0.38, hd - T / 2, stone, null);
     addBox(0.85, 0.75, 0.7, x, H + 0.38, -hd + T / 2, stone, null);
   }
-  g.userData.castle = { blocks: blocks, hw: hw, hd: hd, upperY: upper, upperZ: stair.minZ, stair: stair };
+  g.userData.castle = {
+    blocks: blocks, hw: hw, hd: hd,
+    stairs: [stair1, stair2],
+    floors: [{ y: mid, hole: stair1 }, { y: top, hole: stair2 }]
+  };
 }
 
 function buildTower(g) {
@@ -1720,7 +1741,9 @@ function spawn(spec, x, z, opt) {
     group.position.y = sampleHeight(px, pz);
     o.resting = true;
     if (isPerson(o)) {
-      o.npcName = giveName(spec);
+      o.npcName = opt.name || giveName(spec);
+      if (opt.name) usedNames.add(opt.name);
+      o.foe = null;
       attachName(o);
       o.life = "out";
       o.lifeT = 8 + Math.random() * 6;
@@ -2096,13 +2119,24 @@ function castleRise(o, x, z) {
   const p = worldToLocal(o, x, z);
   const c = o.castle;
   if (p.x < -c.hw || p.x > c.hw || p.z < -c.hd || p.z > c.hd) return null;
-  const s = c.stair;
-  if (p.x >= s.minX && p.x <= s.maxX && p.z >= s.minZ && p.z <= s.maxZ) {
+  const localY = body.y - o.mesh.position.y;
+  let best = 0;
+  const stairs = c.stairs || (c.stair ? [c.stair] : []);
+  for (let i = 0; i < stairs.length; i++) {
+    const s = stairs[i];
+    if (p.x < s.minX || p.x > s.maxX || p.z < s.minZ || p.z > s.maxZ) continue;
     const t = (s.maxZ - p.z) / (s.maxZ - s.minZ);
-    return s.base + Math.max(0, Math.min(1, t)) * (s.top - s.base);
+    const y = s.base + Math.max(0, Math.min(1, t)) * (s.top - s.base);
+    if (y <= localY + 0.75 && y >= best) best = y;
   }
-  if (p.z <= c.upperZ) return c.upperY;
-  return 0;
+  const floors = c.floors || [];
+  for (let i = 0; i < floors.length; i++) {
+    const f = floors[i];
+    const hole = f.hole;
+    if (hole && p.x >= hole.minX && p.x <= hole.maxX && p.z >= hole.minZ && p.z <= hole.maxZ) continue;
+    if (f.y <= localY + 0.75 && f.y >= best) best = f.y;
+  }
+  return best;
 }
 
 function surfaceY(x, z) {
@@ -2313,7 +2347,7 @@ function sayNpc(o, line) {
   speak(o.npcName || "人", line);
 }
 
-function assignTask(o, task) {
+function assignTask(o, task, foe) {
   if (!o || !isPerson(o)) return;
   o.held = false;
   o.pause = 0;
@@ -2344,23 +2378,58 @@ function assignTask(o, task) {
     o.order = "wander";
     o.life = "out";
     o.lifeT = 6;
+    o.foe = null;
     chooseWanderGoal(o);
     sayNpc(o, "我在家附近走走。");
+  } else if (task === "fight") {
+    beginFight(o, foe);
   } else {
     sayNpc(o, "我是" + o.npcName + "。可以说「" + o.npcName + " 去砍树」。");
   }
 }
 
+function beginFight(a, b) {
+  if (!a || !isPerson(a)) return;
+  if (!b || !isPerson(b) || b === a) {
+    sayNpc(a, "我不知道要打谁。");
+    return;
+  }
+  a.foe = b;
+  b.foe = a;
+  a.order = "fight";
+  b.order = "fight";
+  a.life = "out";
+  b.life = "out";
+  a.held = false;
+  b.held = false;
+  a.pause = 0;
+  b.pause = 0;
+  b.phase = a.phase + Math.PI;
+  sayNpc(a, "我和" + b.npcName + "打起来了。");
+  sayNpc(b, "来吧。");
+}
+
+function fightAsked(text) {
+  return /打架|打起来|开战|动手|打一场|对打|去找.+打|找.+打/.test(text);
+}
+
+function namedPeople(text, people) {
+  const named = [];
+  for (let i = 0; i < people.length; i++) {
+    const person = people[i];
+    if (!person.npcName) continue;
+    const at = text.indexOf(person.npcName);
+    if (at >= 0) named.push({ person, at });
+  }
+  named.sort((a, b) => a.at - b.at);
+  return named;
+}
+
 function handleNpcTalk(text) {
   const people = objects.filter(isPerson);
-  let who = null;
-  for (let i = 0; i < people.length; i++) {
-    if (people[i].npcName && text.includes(people[i].npcName)) {
-      who = people[i];
-      break;
-    }
-  }
-  const command = /砍树|砍木|回家|进屋|跟着|过来|跟随|停下|别动|站住|坐下|起来|散步|散开|自己走|训练|你好|您好|你是谁|叫什么/.test(text);
+  const named = namedPeople(text, people);
+  let who = named.length ? named[0].person : null;
+  const command = /砍树|砍木|回家|进屋|跟着|过来|跟随|停下|别动|站住|坐下|起来|散步|散开|自己走|训练|你好|您好|你是谁|叫什么/.test(text) || fightAsked(text);
   if (!who && command) who = nearestPersonObject(8);
   if (!who) return false;
   if (!command && text.length > 16 && !text.includes(who.npcName)) return false;
@@ -2370,6 +2439,23 @@ function handleNpcTalk(text) {
     return true;
   }
   if (/砍树|砍木/.test(text)) assignTask(who, "chop");
+  else if (fightAsked(text)) {
+    let foe = named.length > 1 ? named[1].person : null;
+    if (foe === who) foe = named.length > 2 ? named[2].person : null;
+    if (!foe) {
+      let best = 1e9;
+      for (let i = 0; i < people.length; i++) {
+        const p = people[i];
+        if (p === who) continue;
+        const d = Math.hypot(p.mesh.position.x - who.mesh.position.x, p.mesh.position.z - who.mesh.position.z);
+        if (d < best) {
+          best = d;
+          foe = p;
+        }
+      }
+    }
+    assignTask(who, "fight", foe);
+  }
   else if (/回家|进屋/.test(text)) assignTask(who, "home");
   else if (/过来|跟着|跟随/.test(text)) assignTask(who, "follow");
   else if (/停下|别动|站住/.test(text)) assignTask(who, "stay");
@@ -2809,9 +2895,25 @@ function poseWalker(o, moving) {
     if (part === "leg" || part === "arm") {
       const sign = node.userData.side > 0 ? 1 : -1;
       node.rotation.x = swing * (part === "arm" ? -sign : sign);
+      if (part === "arm") node.rotation.z = sign * -0.08;
       if (part === "arm" && o.wave > 0 && node.userData.side > 0) node.rotation.x = -1.35;
     } else if (part === "tail") {
       node.rotation.y = Math.sin(o.phase * 1.6) * 0.5;
+    }
+  });
+}
+
+function poseFight(o) {
+  const swing = Math.sin(o.phase);
+  o.mesh.traverse((node) => {
+    const part = node.userData && node.userData.part;
+    if (part === "arm") {
+      const sign = node.userData.side > 0 ? 1 : -1;
+      node.rotation.x = -0.55 + swing * 1.15 * sign;
+      node.rotation.z = sign * (-0.2 - Math.max(0, swing) * 0.45);
+    } else if (part === "leg") {
+      const sign = node.userData.side > 0 ? 1 : -1;
+      node.rotation.x = Math.sin(o.phase * 0.5) * 0.28 * sign;
     }
   });
 }
@@ -2840,7 +2942,7 @@ function updateWander(o, dt) {
   }
   const sit = person && o.order === "sit";
   if (sit) stand -= 0.42;
-  const linger = person && o.held && o.order !== "follow";
+  const linger = person && o.held && o.order !== "follow" && o.order !== "fight";
   const followClose = person && o.order === "follow" && pd < 3.3;
   if (linger || followClose || (person && (o.order === "stay" || o.order === "sit"))) {
     o.mesh.position.y = stand;
@@ -2853,6 +2955,38 @@ function updateWander(o, dt) {
     o.goalX = view.target.x + Math.cos(o.phase) * 2.2;
     o.goalZ = view.target.z + Math.sin(o.phase) * 2.2;
     o.pause = 0;
+  }
+  if (person && o.order === "fight") {
+    const foe = o.foe;
+    const gone = !foe || !isPerson(foe) || !foe.mesh || !foe.mesh.parent || foe.order !== "fight";
+    if (gone) {
+      o.foe = null;
+      o.order = "wander";
+      chooseWanderGoal(o);
+    } else {
+      const fdx = foe.mesh.position.x - o.mesh.position.x;
+      const fdz = foe.mesh.position.z - o.mesh.position.z;
+      const fd = Math.hypot(fdx, fdz) || 0.001;
+      if (fd > 1.35) {
+        o.goalX = foe.mesh.position.x;
+        o.goalZ = foe.mesh.position.z;
+        o.pause = 0;
+        o.life = "out";
+      } else {
+        turnToward(o.mesh, Math.atan2(fdx, fdz), dt);
+        o.phase += dt * 8;
+        o.mesh.position.y = stand;
+        if (fd < 0.9) {
+          o.mesh.position.x -= (fdx / fd) * dt * 0.7;
+          o.mesh.position.z -= (fdz / fd) * dt * 0.7;
+        } else if (Math.sin(o.phase) > 0.9) {
+          foe.mesh.position.x += (fdx / fd) * 0.06;
+          foe.mesh.position.z += (fdz / fd) * 0.06;
+        }
+        poseFight(o);
+        return;
+      }
+    }
   }
   if (person && o.order === "chop" && !o.held) {
     let tree = null;
@@ -2882,7 +3016,7 @@ function updateWander(o, dt) {
       o.life = "out";
     }
   }
-  if (person && o.house && o.house.mesh.parent && !o.held && o.order !== "follow" && o.order !== "chop" && o.order !== "stay" && o.order !== "sit") {
+  if (person && o.house && o.house.mesh.parent && !o.held && o.order !== "follow" && o.order !== "chop" && o.order !== "stay" && o.order !== "sit" && o.order !== "fight") {
     if (o.order === "home") o.life = "gohome";
     if (o.life === "out") {
       o.lifeT -= dt;
@@ -2947,7 +3081,7 @@ function updateWander(o, dt) {
   const dz = o.goalZ - pz;
   const dist = Math.hypot(dx, dz);
   if (dist < 0.55) {
-    if (!(person && (o.life === "gohome" || o.life === "leave" || o.order === "chop" || o.order === "home"))) chooseWanderGoal(o);
+    if (!(person && (o.life === "gohome" || o.life === "leave" || o.order === "chop" || o.order === "home" || o.order === "fight"))) chooseWanderGoal(o);
     o.pause = person ? 0.2 : 0.45 + Math.random() * 1.1;
     o.mesh.position.y = stand;
     poseWalker(o, false);
@@ -2977,7 +3111,7 @@ function updateWander(o, dt) {
     }
     o.stuck += 1;
     if (o.stuck > 10) {
-      if (!(person && (o.life === "gohome" || o.life === "leave" || o.order === "chop"))) chooseWanderGoal(o);
+      if (!(person && (o.life === "gohome" || o.life === "leave" || o.order === "chop" || o.order === "fight"))) chooseWanderGoal(o);
       o.stuck = 0;
       o.pause = 0.25;
     }
@@ -3311,6 +3445,7 @@ window.__godsProbe = {
   }),
   people: () => objects.filter(isPerson).map((o) => ({
     name: o.npcName, order: o.order, life: o.life, house: !!o.house,
+    foe: o.foe ? o.foe.npcName : null,
     x: o.mesh.position.x, z: o.mesh.position.z
   })),
   player: () => ({ visible: player.visible, kids: player.children.length, mode: view.mode }),
