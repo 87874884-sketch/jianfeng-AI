@@ -461,6 +461,11 @@ function rebuildTerrain() {
   terrainGeo.computeBoundingSphere();
 }
 
+const DAY_PHASE = 600;
+let skyMat = null;
+const skyState = { night: false, fog: new THREE.Color(0xd5e4f2) };
+const underFog = new THREE.Color(0x163e52);
+
 function makeSky() {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -475,8 +480,31 @@ function makeSky() {
     vertexShader: "varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
     fragmentShader: "varying vec3 vW; uniform vec3 sunDir; uniform vec3 topC; uniform vec3 horC; uniform vec3 botC; void main(){ vec3 dir = normalize(vW); float h = dir.y; vec3 col = mix(horC, topC, smoothstep(0.0, 0.5, h)); col = mix(botC, col, smoothstep(-0.2, 0.05, h)); float sun = pow(max(dot(dir, sunDir), 0.0), 700.0); float glow = pow(max(dot(dir, sunDir), 0.0), 6.0); col += vec3(1.0, 0.93, 0.78) * sun; col += vec3(1.0, 0.86, 0.68) * glow * 0.28; gl_FragColor = vec4(col, 1.0); }"
   });
+  skyMat = mat;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 28, 16), mat);
   scene.add(sky);
+}
+
+function updateDayNight(elapsed) {
+  const cycle = DAY_PHASE * 2;
+  const t = ((elapsed % cycle) + cycle) % cycle;
+  const night = t >= DAY_PHASE;
+  skyState.night = night;
+  skyState.fog.set(night ? 0x10182c : 0xd5e4f2);
+  if (!skyMat) return;
+  skyMat.uniforms.topC.value.set(night ? "#070b18" : "#2f639e");
+  skyMat.uniforms.horC.value.set(night ? "#1c2744" : "#d7e7f6");
+  skyMat.uniforms.botC.value.set(night ? "#10141c" : "#c5d2b0");
+  skyMat.uniforms.sunDir.value.set(night ? 0.42 : -0.45, night ? 0.22 : 0.78, night ? -0.25 : 0.28).normalize();
+  sun.intensity = night ? 0.22 : 2.6;
+  sun.color.set(night ? 0xb7c4e4 : 0xfff2d8);
+  fill.intensity = night ? 0.14 : 0.72;
+  fill.color.set(night ? 0x1a2748 : 0xd7ebff);
+  fill.groundColor.set(night ? 0x12160f : 0x6d8a48);
+  if (water.material && water.material.color) {
+    water.material.color.set(night ? 0x143246 : 0x2f7594);
+    water.material.opacity = night ? 0.9 : 0.78;
+  }
 }
 
 const sun = new THREE.DirectionalLight(0xfff2d8, 2.6);
@@ -492,7 +520,8 @@ sun.shadow.bias = -0.00025;
 sun.shadow.normalBias = 0.04;
 scene.add(sun);
 scene.add(sun.target);
-scene.add(new THREE.HemisphereLight(0xd7ebff, 0x6d8a48, 0.72));
+const fill = new THREE.HemisphereLight(0xd7ebff, 0x6d8a48, 0.72);
+scene.add(fill);
 
 const water = new THREE.Mesh(
   new THREE.CircleGeometry(SIZE * 0.52, 96),
@@ -2380,8 +2409,8 @@ function updateCamera() {
   }
   camera.updateProjectionMatrix();
   const under = view.mode === "fps" && camera.position.y < WATER - 0.15;
-  scene.background.set(under ? 0x163e52 : 0xd5e4f2);
-  scene.fog.color.set(under ? 0x163e52 : 0xd5e4f2);
+  scene.background.copy(under ? underFog : skyState.fog);
+  scene.fog.color.copy(under ? underFog : skyState.fog);
   scene.fog.near = under ? 0.6 : 90;
   scene.fog.far = under ? 18 : 430;
 }
@@ -3089,6 +3118,10 @@ window.__godsProbe = {
   water: WATER,
   spawn: (id, x, z) => spawn(byId[id], x, z, { settle: true, yaw: 0 }),
   generation: () => GENERATION_ON,
+  dayNight: (elapsed) => {
+    if (elapsed != null) updateDayNight(elapsed);
+    return { night: skyState.night, sun: sun.intensity, fog: skyState.fog.getHexString() };
+  },
   people: () => objects.filter(isPerson).map((o) => ({
     name: o.npcName, order: o.order, life: o.life, house: !!o.house,
     x: o.mesh.position.x, z: o.mesh.position.z
@@ -3162,7 +3195,10 @@ function frame() {
   updateObjects(dt);
   updateSplashes(dt);
   water.position.y = WATER + Math.sin(clock.elapsedTime * 0.8) * 0.04;
-  sun.position.set(view.target.x - 55, 100, view.target.z + 30);
+  updateDayNight(clock.elapsedTime);
+  const sunLift = skyState.night ? 18 : 100;
+  const sunOff = skyState.night ? 70 : -55;
+  sun.position.set(view.target.x + sunOff, sunLift, view.target.z + (skyState.night ? -36 : 30));
   sun.target.position.set(view.target.x, 0, view.target.z);
   sun.target.updateMatrixWorld();
   updatePlayer(dt);
