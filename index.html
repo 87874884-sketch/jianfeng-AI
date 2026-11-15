@@ -1724,7 +1724,6 @@ function spawn(spec, x, z, opt) {
       attachName(o);
       o.life = "out";
       o.lifeT = 8 + Math.random() * 6;
-      giveHome(o);
       chooseWanderGoal(o);
     }
   } else if (o.behavior === "sky") {
