@@ -2581,6 +2581,11 @@ function seedWorld() {
   });
   const shore = findShore(8, 16);
   spawn(byId.house, shore.x, shore.z, { settle: true, yaw: 0.6 });
+  const castleX = shore.x + 36;
+  const castleZ = shore.z - 30;
+  const castleGround = sampleHeight(castleX, castleZ);
+  const castleAt = castleGround > WATER + 1.2 ? { x: castleX, z: castleZ } : { x: shore.x - 46, z: shore.z + 8 };
+  spawn(byId.castle, castleAt.x, castleAt.z, { settle: true, yaw: 0.4 });
   spawn(byId.dog, shore.x + 3.4, shore.z + 1.2, { settle: true });
   for (let i = 0; i < 6; i++) spawn(byId.flower, shore.x - 2 + (i % 3), shore.z + 2 + Math.floor(i / 3), { settle: true });
   spawn(byId.grass, shore.x + 2, shore.z - 2, { settle: true });
@@ -3451,6 +3456,11 @@ window.__godsProbe = {
   player: () => ({ visible: player.visible, kids: player.children.length, mode: view.mode }),
   removeNear: () => tryRemove(removalTarget()),
   count: (id) => objects.filter((o) => o.spec && o.spec.id === id).length,
+  at: (id) => objects.filter((o) => o.spec && o.spec.id === id).map((o) => ({
+    x: Math.round(o.mesh.position.x * 10) / 10,
+    y: Math.round(o.mesh.position.y * 10) / 10,
+    z: Math.round(o.mesh.position.z * 10) / 10
+  })),
   use: () => useInteract(),
   craft: (id) => craft(id),
   near: () => {
