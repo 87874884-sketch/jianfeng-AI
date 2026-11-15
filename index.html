@@ -1,0 +1,3597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>神的世界</title>
+<style>
+  :root {
+    --ink: #e7e1d4;
+    --dim: #a39886;
+    --gold: #c6a15a;
+    --panel: #17140f;
+    --line: rgba(198, 161, 90, 0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #0c0e13;
+    color: var(--ink);
+    font: 16px/1.45 "Songti SC", "Noto Serif SC", "PingFang SC", "Microsoft YaHei", Georgia, serif;
+  }
+  body {
+    min-height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: 1fr 320px;
+    grid-template-areas:
+      "top top"
+      "world chat"
+      "tools chat";
+  }
+  header {
+    grid-area: top;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: normal;
+    letter-spacing: 0.18em;
+  }
+  header p { margin: 0; color: var(--dim); font-size: 14px; }
+  .stage {
+    grid-area: world;
+    position: relative;
+    min-height: 0;
+    background: #9eb8cc;
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hint {
+    position: absolute;
+    left: 14px;
+    bottom: 12px;
+    max-width: 78%;
+    color: rgba(255, 250, 240, 0.92);
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+  }
+  #bag {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    color: rgba(255, 250, 240, 0.95);
+    font-size: 14px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+    pointer-events: none;
+  }
+  #cycle {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 6;
+    padding: 4px 12px;
+    background: rgba(18, 16, 12, 0.88);
+    border: 1px solid var(--gold);
+    color: #f3e2b0;
+    font-size: 16px;
+    letter-spacing: 0.16em;
+    pointer-events: none;
+  }
+  #cycle[data-phase="night"] {
+    color: #d7e4ff;
+    border-color: #8aa4d4;
+  }
+  #labels { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+  .npc-tag, .npc-say {
+    position: absolute;
+    transform: translate(-50%, -120%);
+    padding: 3px 8px;
+    background: rgba(18, 16, 12, 0.88);
+    border: 1px solid var(--gold);
+    color: var(--ink);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .npc-say { font-size: 15px; }
+  #orders {
+    position: absolute;
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 148px;
+    padding: 8px;
+    background: rgba(18, 16, 12, 0.94);
+    border: 1px solid var(--gold);
+  }
+  #orders[hidden] { display: none; }
+  #orders b { color: var(--gold); font-weight: normal; }
+  #orders button { text-align: left; cursor: pointer; }
+  #prompt {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, -130%);
+    padding: 6px 12px;
+    background: rgba(18, 16, 12, 0.92);
+    border: 1px solid var(--gold);
+    color: var(--ink);
+    font-size: 16px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #craft {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 240px;
+    padding: 10px;
+    background: rgba(18, 16, 12, 0.9);
+    border: 1px solid var(--line);
+  }
+  #craft[hidden] { display: none; }
+  #craft b { color: var(--gold); font-weight: normal; letter-spacing: 0.14em; }
+  #craft button { text-align: left; cursor: pointer; }
+  .tools {
+    grid-area: tools;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px 14px;
+    border-top: 1px solid var(--line);
+    background: #12100c;
+  }
+  .tools span { color: var(--dim); font-size: 14px; }
+  button, input { font: inherit; color: var(--ink); }
+  #fps, #orbit, #third, #erase, #craftBtn, #send, .slot, #craft button {
+    background: #241e16;
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  #fps.selected, #orbit.selected, #third.selected, #erase.selected, .slot.selected {
+    border-color: var(--gold);
+    box-shadow: inset 0 0 0 1px var(--gold);
+    color: var(--gold);
+  }
+  #hotbar { display: flex; gap: 6px; flex-wrap: wrap; }
+  aside {
+    grid-area: chat;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    min-height: 0;
+  }
+  aside h2 {
+    margin: 0;
+    padding: 14px 16px 8px;
+    font-size: 14px;
+    font-weight: normal;
+    letter-spacing: 0.22em;
+    color: var(--gold);
+  }
+  #log {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .msg { margin: 0; font-size: 15px; }
+  .msg b { font-weight: normal; color: var(--gold); }
+  .you b { color: var(--dim); }
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+  }
+  #say {
+    flex: 1;
+    min-width: 0;
+    background: #100e0b;
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+  }
+  @media (max-width: 800px) {
+    body {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 52vh auto 1fr;
+      grid-template-areas: "top" "world" "tools" "chat";
+    }
+    aside { border-left: 0; border-top: 1px solid var(--line); min-height: 240px; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+  <header>
+    <h1>神的世界</h1>
+    <p>开阔的三维大地。说出名字就能生成，也可以叫名字下命令。</p>
+  </header>
+  <div class="stage" id="stage">
+    <div id="bag">背包　木头 0　木板 0　木棍 0</div>
+    <div id="cycle" data-phase="day">白天</div>
+    <div id="prompt" hidden>按 E</div>
+    <div id="orders" hidden>
+      <b id="orderName">人</b>
+      <button type="button" data-task="chop">去砍树</button>
+      <button type="button" data-task="home">回家</button>
+      <button type="button" data-task="follow">跟着我</button>
+      <button type="button" data-task="stay">停下</button>
+      <button type="button" data-task="sit">坐下</button>
+      <button type="button" data-task="wander">自己走走</button>
+    </div>
+    <div id="labels"></div>
+    <div id="hint">W A S D 移动 · 空格跳 · V 切换第一人称和第三人称 · 点人下命令，或输入「阿山 去砍树」· 靠近人按 Delete 请他离开 · 说出名字即可生成</div>
+  </div>
+  <div class="tools">
+    <button id="fps" type="button">第一人称</button>
+    <button id="third" type="button">第三人称</button>
+    <button id="orbit" type="button" class="selected">环绕视角</button>
+    <button id="erase" type="button">删除</button>
+    <div id="hotbar"></div>
+  </div>
+  <aside>
+    <h2>神谕</h2>
+    <div id="log"></div>
+    <form id="talk">
+      <input id="say" type="text" autocomplete="off" placeholder="造一座房子，或叫名字：阿山 过来" aria-label="指令">
+      <button id="send" type="submit">说</button>
+    </form>
+  </aside>
+  <script>
+    setTimeout(() => {
+      if (window.__godsReady) return;
+      const log = document.getElementById("log");
+      if (log && !log.childElementCount) {
+        const p = document.createElement("p");
+        p.className = "msg";
+        p.textContent = "三维场景正在加载。若一直空白，请检查网络后刷新。";
+        log.appendChild(p);
+      }
+    }, 7000);
+  </script>
+  <script type="module">
+import * as THREE from "three";
+
+const SIZE = 460;
+const SEG = 210;
+const WATER = 4.8;
+const WORLD = SIZE * 0.48;
+
+const stage = document.getElementById("stage");
+const log = document.getElementById("log");
+const fpsBtn = document.getElementById("fps");
+const thirdBtn = document.getElementById("third");
+const orbitBtn = document.getElementById("orbit");
+const labelsEl = document.getElementById("labels");
+const ordersEl = document.getElementById("orders");
+const orderNameEl = document.getElementById("orderName");
+const eraseBtn = document.getElementById("erase");
+const GENERATION_ON = true;
+const MAX_PEOPLE = 6;
+let seeding = true;
+let selectedNpc = null;
+let genNoteAt = 0;
+let lastMentioned = null;
+const bagEl = document.getElementById("bag");
+const cycleEl = document.getElementById("cycle");
+let cycleShown = "";
+const promptEl = document.getElementById("prompt");
+let deleteMode = false;
+const interactables = [];
+const bag = { wood: 0, plank: 0, stick: 0 };
+const body = { y: 8, vy: 0, wet: false, grounded: true };
+const promptV = new THREE.Vector3();
+const lookDir = new THREE.Vector3();
+const nameV = new THREE.Vector3();
+const usedNames = new Set();
+const NAME_POOL = {
+  man: ["阿山", "老周", "林生", "大牛", "石磊"],
+  woman: ["阿兰", "小梅", "秀娘", "秋月", "晚晴"],
+  child: ["小宝", "豆豆", "妞妞", "毛毛"],
+  person: ["阿禾", "小路", "陈平", "方宁"]
+};
+const sayInput = document.getElementById("say");
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setSize(stage.clientWidth, stage.clientHeight, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.insertBefore(renderer.domElement, stage.firstChild);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xd5e4f2, 90, 430);
+scene.background = new THREE.Color(0xd5e4f2);
+
+const camera = new THREE.PerspectiveCamera(52, 1, 0.15, 1400);
+const view = {
+  mode: "orbit",
+  yaw: -0.85,
+  pitch: 0.52,
+  dist: 86,
+  fov: 58,
+  front: false,
+  target: new THREE.Vector3(18, 0, 6)
+};
+const keys = {};
+let selected = 0;
+const objects = [];
+const mods = [];
+let terrainDirty = false;
+
+const raycaster = new THREE.Raycaster();
+const groundRay = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const clock = new THREE.Clock();
+
+function speak(who, text, cls) {
+  const p = document.createElement("p");
+  p.className = "msg" + (cls ? " " + cls : "");
+  const b = document.createElement("b");
+  b.textContent = who + " ";
+  p.appendChild(b);
+  p.appendChild(document.createTextNode(text));
+  log.appendChild(p);
+  log.scrollTop = log.scrollHeight;
+}
+
+function baseHeight(x, z) {
+  let h = 9.6;
+  h += Math.sin(x * 0.015) * 1.8;
+  h += Math.cos(z * 0.012 + 1.1) * 1.35;
+  h += Math.sin(x * 0.031 + z * 0.02) * 0.55;
+  const d1 = Math.hypot(x - 110, z + 120);
+  h += Math.exp(-(d1 * d1) / (2 * 46 * 46)) * 48;
+  const d2 = Math.hypot(x + 160, z - 40);
+  h += Math.exp(-(d2 * d2) / (2 * 32 * 32)) * 20;
+  const ld = Math.hypot(x - 8, z - 16);
+  h -= Math.exp(-(ld * ld) / (2 * 22 * 22)) * 9.5;
+  const rz = 14 + Math.sin(x * 0.016) * 5;
+  const rd = z - rz;
+  if (x > -180 && x < 28) h -= Math.exp(-(rd * rd) / (2 * 4.6 * 4.6)) * 7.2;
+  return h;
+}
+
+function sampleHeight(x, z) {
+  let h = baseHeight(x, z);
+  for (let i = 0; i < mods.length; i++) {
+    const m = mods[i];
+    const g = m.grow;
+    if (m.kind === "mountain") {
+      const d2 = (x - m.x) ** 2 + (z - m.z) ** 2;
+      h += Math.exp(-d2 / (2 * m.r * m.r)) * m.amp * g;
+    } else if (m.kind === "lake") {
+      const d2 = (x - m.x) ** 2 + (z - m.z) ** 2;
+      const bowl = Math.exp(-d2 / (2 * m.r * m.r)) * g;
+      h -= bowl * Math.max(0, h - (WATER - m.depth));
+    } else if (m.kind === "river") {
+      const dx = x - m.x;
+      const dz = z - m.z;
+      const dirx = Math.sin(m.yaw);
+      const dirz = Math.cos(m.yaw);
+      const along = dx * dirx + dz * dirz;
+      const side = dx * dirz - dz * dirx;
+      if (along > -2 && along < m.len) {
+        const carve = Math.exp(-(side * side) / (2 * m.width * m.width)) * g;
+        h -= carve * Math.max(0, h - (WATER - 1.1));
+      }
+    }
+  }
+  return h;
+}
+
+function sandAmount(x, z) {
+  let s = 0;
+  for (let i = 0; i < mods.length; i++) {
+    const m = mods[i];
+    if (m.kind !== "sand") continue;
+    const d = Math.hypot(x - m.x, z - m.z);
+    if (d < m.r) s = Math.max(s, 1 - d / m.r);
+  }
+  return s;
+}
+
+function walkY(x, z) {
+  const t = sampleHeight(x, z);
+  return t < WATER ? WATER : t;
+}
+
+function hash(x, z) {
+  const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+const grassC = new THREE.Color("#4d7d3c");
+const sandC = new THREE.Color("#d9c596");
+const rockC = new THREE.Color("#7e7a74");
+const snowC = new THREE.Color("#eef3f6");
+const tint = new THREE.Color();
+
+function colorAt(x, y, z) {
+  const hL = sampleHeight(x - 2, z);
+  const hR = sampleHeight(x + 2, z);
+  const hD = sampleHeight(x, z - 2);
+  const hU = sampleHeight(x, z + 2);
+  const slope = Math.hypot(hR - hL, hU - hD) / 4;
+  tint.copy(grassC);
+  const sand = Math.max(sandAmount(x, z), y < WATER + 0.85 ? 0.9 : 0);
+  if (sand > 0) tint.lerp(sandC, sand);
+  if (slope > 1.15 && y > WATER + 1) tint.lerp(rockC, Math.min(1, (slope - 1.15) / 1.4));
+  if (y > 18) tint.lerp(rockC, Math.min(0.85, (y - 18) / 14));
+  if (y > 28) tint.lerp(snowC, Math.min(1, (y - 28) / 10));
+  const n = 0.9 + hash(x, z) * 0.18;
+  tint.multiplyScalar(n);
+  return tint;
+}
+
+let terrainGeo;
+let terrain;
+
+function buildTerrain() {
+  terrainGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const count = terrainGeo.attributes.position.count;
+  terrainGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.94,
+    metalness: 0
+  }));
+  terrain.receiveShadow = true;
+  terrain.castShadow = true;
+  scene.add(terrain);
+  rebuildTerrain();
+}
+
+function rebuildTerrain() {
+  const pos = terrainGeo.attributes.position;
+  const col = terrainGeo.attributes.color;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const y = sampleHeight(x, z);
+    pos.setY(i, y);
+    colorAt(x, y, z);
+    col.setXYZ(i, tint.r, tint.g, tint.b);
+  }
+  pos.needsUpdate = true;
+  col.needsUpdate = true;
+  terrainGeo.computeVertexNormals();
+  terrainGeo.computeBoundingSphere();
+}
+
+const DAY_PHASE = 600;
+let skyMat = null;
+const skyState = { night: false, fog: new THREE.Color(0xd5e4f2) };
+const underFog = new THREE.Color(0x163e52);
+
+function makeSky() {
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      sunDir: { value: new THREE.Vector3(-0.45, 0.78, 0.28).normalize() },
+      topC: { value: new THREE.Color("#2f639e") },
+      horC: { value: new THREE.Color("#d7e7f6") },
+      botC: { value: new THREE.Color("#c5d2b0") }
+    },
+    vertexShader: "varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
+    fragmentShader: "varying vec3 vW; uniform vec3 sunDir; uniform vec3 topC; uniform vec3 horC; uniform vec3 botC; void main(){ vec3 dir = normalize(vW); float h = dir.y; vec3 col = mix(horC, topC, smoothstep(0.0, 0.5, h)); col = mix(botC, col, smoothstep(-0.2, 0.05, h)); float sun = pow(max(dot(dir, sunDir), 0.0), 700.0); float glow = pow(max(dot(dir, sunDir), 0.0), 6.0); col += vec3(1.0, 0.93, 0.78) * sun; col += vec3(1.0, 0.86, 0.68) * glow * 0.28; gl_FragColor = vec4(col, 1.0); }"
+  });
+  skyMat = mat;
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 28, 16), mat);
+  scene.add(sky);
+}
+
+function updateDayNight(elapsed) {
+  const cycle = DAY_PHASE * 2;
+  const t = ((elapsed % cycle) + cycle) % cycle;
+  const night = t >= DAY_PHASE;
+  skyState.night = night;
+  skyState.fog.set(night ? 0x24344f : 0xd5e4f2);
+  if (cycleEl) {
+    const label = night ? "黑夜" : "白天";
+    if (cycleShown !== label) {
+      cycleShown = label;
+      cycleEl.textContent = label;
+      cycleEl.dataset.phase = night ? "night" : "day";
+    }
+  }
+  renderer.toneMappingExposure = night ? 1.28 : 1.08;
+  if (!skyMat) return;
+  skyMat.uniforms.topC.value.set(night ? "#12182e" : "#2f639e");
+  skyMat.uniforms.horC.value.set(night ? "#3a4e72" : "#d7e7f6");
+  skyMat.uniforms.botC.value.set(night ? "#1a2230" : "#c5d2b0");
+  skyMat.uniforms.sunDir.value.set(night ? 0.42 : -0.45, night ? 0.42 : 0.78, night ? -0.25 : 0.28).normalize();
+  sun.intensity = night ? 0.7 : 2.6;
+  sun.color.set(night ? 0xc9d6f2 : 0xfff2d8);
+  fill.intensity = night ? 0.46 : 0.72;
+  fill.color.set(night ? 0x4d6494 : 0xd7ebff);
+  fill.groundColor.set(night ? 0x2a3324 : 0x6d8a48);
+  if (water.material && water.material.color) {
+    water.material.color.set(night ? 0x143246 : 0x2f7594);
+    water.material.opacity = night ? 0.9 : 0.78;
+  }
+}
+
+const sun = new THREE.DirectionalLight(0xfff2d8, 2.6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 2;
+sun.shadow.camera.far = 240;
+sun.shadow.camera.left = -80;
+sun.shadow.camera.right = 80;
+sun.shadow.camera.top = 80;
+sun.shadow.camera.bottom = -80;
+sun.shadow.bias = -0.00025;
+sun.shadow.normalBias = 0.04;
+scene.add(sun);
+scene.add(sun.target);
+const fill = new THREE.HemisphereLight(0xd7ebff, 0x6d8a48, 0.72);
+scene.add(fill);
+
+const water = new THREE.Mesh(
+  new THREE.CircleGeometry(SIZE * 0.52, 96),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x2f7594,
+    transparent: true,
+    opacity: 0.78,
+    roughness: 0.06,
+    metalness: 0.08,
+    transmission: 0.35,
+    thickness: 1.4,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08
+  })
+);
+water.rotation.x = -Math.PI / 2;
+water.position.y = WATER;
+water.receiveShadow = true;
+water.material.side = THREE.DoubleSide;
+scene.add(water);
+
+function canvasTex(paint, repeat) {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  paint(c.getContext("2d"));
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (repeat) t.repeat.set(repeat, repeat);
+  return t;
+}
+
+const barkMap = canvasTex((g) => {
+  g.fillStyle = "#6a4630";
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = "#4a2e1d";
+  for (let x = 0; x < 256; x += 14) {
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.bezierCurveTo(x + 6, 80, x - 6, 160, x + 2, 256);
+    g.stroke();
+  }
+}, 1);
+const plasterMap = canvasTex((g) => {
+  g.fillStyle = "#e6d7c3";
+  g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 1800; i++) {
+    const v = 180 + Math.random() * 50;
+    g.fillStyle = "rgba(" + v + "," + (v - 15) + "," + (v - 30) + ",0.35)";
+    g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+  }
+}, 1);
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.78 });
+const barkMat = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x8a6244, roughness: 0.9 });
+const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f7a3e, roughness: 0.8 });
+const leafMat2 = new THREE.MeshStandardMaterial({ color: 0x3e9450, roughness: 0.75 });
+const stoneMat = new THREE.MeshStandardMaterial({ color: 0x9a948c, roughness: 0.9 });
+const plasterMat = new THREE.MeshStandardMaterial({ map: plasterMap, color: 0xffffff, roughness: 0.86 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0xb7bdc6, roughness: 0.28, metalness: 0.85 });
+const glassMat = new THREE.MeshStandardMaterial({ color: 0xb7d7ea, roughness: 0.08, metalness: 0.15, transparent: true, opacity: 0.55 });
+
+function mesh(geo, material, shadows) {
+  const m = new THREE.Mesh(geo, material);
+  const cast = shadows !== false;
+  m.castShadow = cast;
+  m.receiveShadow = cast;
+  return m;
+}
+
+function randColor(h0, h1, s0, s1, l0, l1) {
+  return new THREE.Color().setHSL(
+    h0 + Math.random() * (h1 - h0),
+    s0 + Math.random() * (s1 - s0),
+    l0 + Math.random() * (l1 - l0)
+  );
+}
+
+function buildTree(g, S) {
+  const k = S * (0.72 + Math.random() * 0.7);
+  const leaves = new THREE.MeshStandardMaterial({ color: randColor(0.22, 0.42, 0.35, 0.7, 0.18, 0.42), roughness: 0.75 });
+  const leaves2 = leaves.clone();
+  leaves2.color = leaves.color.clone().offsetHSL(0.03, 0, 0.06);
+  const trunkH = (1.1 + Math.random() * 0.6) * k;
+  const trunk = mesh(new THREE.CylinderGeometry(0.1 * k, 0.18 * k, trunkH, 12), barkMat);
+  trunk.position.y = trunkH / 2;
+  const crown = 0.55 + Math.random() * 0.45;
+  const a = mesh(new THREE.SphereGeometry(crown * k, 16, 12), leaves);
+  a.position.y = trunkH + crown * k * 0.45;
+  a.scale.set(0.85 + Math.random() * 0.4, 0.9 + Math.random() * 0.45, 0.85 + Math.random() * 0.35);
+  const b = mesh(new THREE.SphereGeometry(crown * k * 0.62, 14, 10), leaves2);
+  b.position.set((Math.random() - 0.5) * k, a.position.y + 0.25 * k, (Math.random() - 0.5) * k);
+  g.add(trunk, a, b);
+  const branchMat = barkMat;
+  for (let i = 0; i < 3; i++) {
+    const len = (0.45 + Math.random() * 0.35) * k;
+    const branch = mesh(new THREE.CylinderGeometry(0.035 * k, 0.06 * k, len, 7), branchMat);
+    const ang = Math.random() * Math.PI * 2;
+    branch.position.set(Math.cos(ang) * 0.15 * k, trunkH * (0.55 + Math.random() * 0.25), Math.sin(ang) * 0.15 * k);
+    branch.rotation.z = Math.cos(ang) * 0.9;
+    branch.rotation.x = Math.sin(ang) * 0.5;
+    const tuft = mesh(new THREE.SphereGeometry(crown * k * 0.38, 10, 8), leaves);
+    tuft.position.copy(branch.position);
+    tuft.position.y += len * 0.35;
+    tuft.position.x += Math.cos(ang) * len * 0.35;
+    tuft.position.z += Math.sin(ang) * len * 0.35;
+    g.add(branch, tuft);
+  }
+}
+
+function buildPine(g) {
+  const k = 0.75 + Math.random() * 0.8;
+  const trunk = mesh(new THREE.CylinderGeometry(0.09 * k, 0.16 * k, 1.15 * k, 10), barkMat);
+  trunk.position.y = 0.55 * k;
+  const mat = new THREE.MeshStandardMaterial({ color: randColor(0.24, 0.38, 0.35, 0.7, 0.14, 0.32), roughness: 0.86 });
+  const layers = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < layers; i++) {
+    const cone = mesh(new THREE.ConeGeometry((0.85 - i * 0.14) * k, (0.8 + Math.random() * 0.3) * k, 10 + (i % 2)), mat);
+    cone.position.y = 1.05 * k + i * 0.52 * k;
+    g.add(cone);
+  }
+  g.add(trunk);
+}
+
+function buildFlower(g) {
+  const colors = [0xe25b78, 0xf0c93a, 0x7d5ad4, 0xf08a3a, 0xf7f4ef];
+  const stem = mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.46, 6), new THREE.MeshStandardMaterial({ color: 0x2c6a34, roughness: 0.8 }));
+  stem.position.y = 0.23;
+  const petal = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)], roughness: 0.5 });
+  const center = mesh(new THREE.SphereGeometry(0.055, 10, 8), new THREE.MeshStandardMaterial({ color: 0xf3dc6a, roughness: 0.45 }));
+  center.position.y = 0.5;
+  g.add(stem, center);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const p = mesh(new THREE.SphereGeometry(0.065, 10, 8), petal);
+    p.position.set(Math.cos(a) * 0.09, 0.5, Math.sin(a) * 0.09);
+    g.add(p);
+  }
+}
+
+function buildGrass(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x3c7a34, roughness: 0.9 });
+  for (let i = 0; i < 8; i++) {
+    const blade = mesh(new THREE.ConeGeometry(0.035, 0.28 + (i % 3) * 0.08, 5), mat);
+    blade.position.set(((i % 4) - 1.5) * 0.18, 0.16, (Math.floor(i / 4) - 0.5) * 0.22);
+    g.add(blade);
+  }
+}
+
+function buildBush(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2f6b38, roughness: 0.85 });
+  const a = mesh(new THREE.SphereGeometry(0.42, 14, 12), mat);
+  a.position.y = 0.32;
+  const b = mesh(new THREE.SphereGeometry(0.28, 12, 10), mat);
+  b.position.set(0.28, 0.26, 0.08);
+  g.add(a, b);
+}
+
+function buildGlass(g) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xd7f3ff,
+    roughness: 0.05,
+    metalness: 0.05,
+    transmission: 0.85,
+    thickness: 0.4,
+    transparent: true,
+    opacity: 0.45
+  });
+  const body = mesh(new THREE.SphereGeometry(0.38, 20, 16), mat);
+  body.scale.set(1, 0.82, 1);
+  body.position.y = 0.32;
+  g.add(body);
+}
+
+function buildWood(g) {
+  const log = mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.9, 14), woodMat);
+  log.position.y = 0.45;
+  const cap = mesh(new THREE.CircleGeometry(0.22, 14), new THREE.MeshStandardMaterial({ color: 0xc4a06a, roughness: 0.7 }));
+  cap.rotation.x = -Math.PI / 2;
+  cap.position.y = 0.9;
+  g.add(log, cap);
+}
+
+function buildSandPile(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xe2c98a, roughness: 0.95 });
+  const pile = mesh(new THREE.SphereGeometry(0.42, 16, 12), mat);
+  pile.scale.set(1.2, 0.45, 1.15);
+  pile.position.y = 0.16;
+  g.add(pile);
+}
+
+function buildRock(g) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: randColor(0.05, 0.12, 0.02, 0.12, 0.28, 0.55),
+    roughness: 0.92,
+    flatShading: true
+  });
+  const geo = new THREE.IcosahedronGeometry(0.38 + Math.random() * 0.12, 1);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const n = 0.75 + Math.random() * 0.5;
+    pos.setXYZ(i, pos.getX(i) * n, pos.getY(i) * (0.55 + Math.random() * 0.35), pos.getZ(i) * n);
+  }
+  geo.computeVertexNormals();
+  const rock = mesh(geo, mat);
+  rock.position.y = 0.22;
+  rock.rotation.y = Math.random() * Math.PI;
+  g.add(rock);
+}
+
+function levelRoof(positions, indices) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function buildHouse(g, S) {
+  const scale = (S || 1) * (0.82 + Math.random() * 0.5);
+  const wallColors = [0xf5f7f8, 0xe8eef2, 0xf7f5f2, 0xdfe5ea];
+  const wallMat = new THREE.MeshStandardMaterial({ color: wallColors[Math.floor(Math.random() * wallColors.length)], roughness: 0.38, metalness: 0.04 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.42, metalness: 0.18 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x2a2f35, roughness: 0.4, metalness: 0.16 });
+  const glassPane = new THREE.MeshStandardMaterial({ color: 0xd7e7f1, roughness: 0.05, metalness: 0.22, transparent: true, opacity: 0.62 });
+  const w = (2 + Math.random() * 1.2) * scale;
+  const d = (1.5 + Math.random() * 0.9) * scale;
+  const h = (1.25 + Math.random() * 0.75) * scale;
+  const t = Math.max(0.16, 0.12 * scale);
+  const doorW = S === 3 ? 2.58 : Math.min(w * 0.46, Math.max(0.86, 0.48 * scale));
+  let doorX = (Math.random() - 0.5) * Math.max(0.05, w - doorW - 0.5);
+  doorX = Math.max(-w / 2 + 0.2, Math.min(w / 2 - doorW - 0.2, doorX));
+  const hw = w / 2;
+  const hd = d / 2;
+  const slab = (sx, sy, sz, px, py, pz) => {
+    const part = mesh(new THREE.BoxGeometry(sx, sy, sz), wallMat);
+    part.position.set(px, py, pz);
+    part.userData.role = "wall";
+    g.add(part);
+    return part;
+  };
+  slab(w - t * 2, 0.28 * scale, d - t * 2, 0, 0.26 * scale, 0);
+  slab(t, h, d, -hw + t / 2, h / 2, 0);
+  slab(t, h, d, hw - t / 2, h / 2, 0);
+  slab(w, h, t, 0, h / 2, -hd + t / 2);
+  const leftSpan = doorX - (-hw);
+  if (leftSpan > 0.08) slab(leftSpan, h, t, -hw + leftSpan / 2, h / 2, hd - t / 2);
+  const rightSpan = hw - (doorX + doorW);
+  if (rightSpan > 0.08) slab(rightSpan, h, t, hw - rightSpan / 2, h / 2, hd - t / 2);
+  const step = mesh(new THREE.BoxGeometry(doorW + 0.2, 0.08 * scale, 0.36), trimMat);
+  step.position.set(doorX + doorW / 2, 0.1 * scale, hd + 0.12);
+  g.add(step);
+  const plinth = mesh(new THREE.BoxGeometry(w + 0.06, 0.12 * scale, d + 0.06), trimMat);
+  plinth.position.y = 0.02 * scale;
+  g.add(plinth);
+  const thick = 0.11 * scale;
+  const roof = mesh(new THREE.BoxGeometry(w * 1.1, thick, d * 1.1), roofMat);
+  roof.position.y = h + thick / 2;
+  roof.userData.role = "roof";
+  g.add(roof);
+  const skylight = mesh(new THREE.BoxGeometry(w * 0.26, 0.04 * scale, d * 0.2), glassPane);
+  skylight.position.y = h + thick + 0.02 * scale;
+  g.add(skylight);
+  const doorH = (S === 3 ? 1.35 : 1) * Math.min(1.15 * scale, h * 0.82);
+  const hinge = new THREE.Group();
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x2c3238, roughness: 0.32, metalness: 0.28 });
+  const door = mesh(new THREE.BoxGeometry(doorW, doorH, 0.07 * scale), doorMat);
+  door.position.set(doorW / 2, doorH / 2, 0);
+  const knob = mesh(new THREE.SphereGeometry(0.035 * scale, 8, 8), metalMat);
+  knob.position.set(doorW * 0.82, doorH * 0.48, 0.05 * scale);
+  hinge.add(door, knob);
+  hinge.position.set(doorX, 0, hd);
+  hinge.userData.role = "door";
+  g.add(hinge);
+  const doorState = { mesh: hinge, kind: "door", open: false, angle: 0, target: 0, radius: 4.4 };
+  interactables.push(doorState);
+  g.userData.shell = { w, d, t, doorX, doorW, door: doorState };
+  const bandH = Math.max(0.35 * scale, h * 0.28);
+  const bandY = h * 0.62;
+  const sideWin = mesh(new THREE.BoxGeometry(0.05, bandH, d * 0.52), glassPane);
+  sideWin.position.set(-hw - 0.02, bandY, 0);
+  const sideWinR = mesh(new THREE.BoxGeometry(0.05, bandH, d * 0.52), glassPane);
+  sideWinR.position.set(hw + 0.02, bandY, 0);
+  const backWin = mesh(new THREE.BoxGeometry(w * 0.42, bandH, 0.05), glassPane);
+  backWin.position.set(0, bandY, -hd - 0.02);
+  g.add(sideWin, sideWinR, backWin);
+  const doorGlass = mesh(new THREE.BoxGeometry(doorW * 0.22, doorH * 0.48, 0.02), glassPane);
+  doorGlass.position.set(doorW * 0.72, doorH * 0.58, 0.05 * scale);
+  hinge.add(doorGlass);
+}
+
+function buildCastle(g) {
+  const W = 32;
+  const D = 24;
+  const T = 0.7;
+  const H = 12.6;
+  const mid = 4.2;
+  const top = 8.4;
+  const hw = W / 2;
+  const hd = D / 2;
+  const stone = new THREE.MeshStandardMaterial({ color: 0x8a847c, roughness: 0.92 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x6a645c, roughness: 0.9 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xa3947c, roughness: 0.86 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x7c342c, roughness: 0.74 });
+  const blocks = [];
+  function addBox(sx, sy, sz, px, py, pz, mat, block) {
+    const part = mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+    part.position.set(px, py, pz);
+    g.add(part);
+    if (block) blocks.push(block);
+  }
+  addBox(T, H, D, -hw + T / 2, H / 2, 0, stone, { minX: -hw, maxX: -hw + T, minZ: -hd, maxZ: hd });
+  addBox(T, H, D, hw - T / 2, H / 2, 0, stone, { minX: hw - T, maxX: hw, minZ: -hd, maxZ: hd });
+  addBox(W, H, T, 0, H / 2, -hd + T / 2, stone, { minX: -hw, maxX: hw, minZ: -hd, maxZ: -hd + T });
+  const gate = 4.4;
+  const sideW = hw - gate / 2;
+  addBox(sideW, H, T, -hw + sideW / 2, H / 2, hd - T / 2, stone, { minX: -hw, maxX: -gate / 2, minZ: hd - T, maxZ: hd });
+  addBox(sideW, H, T, hw - sideW / 2, H / 2, hd - T / 2, stone, { minX: gate / 2, maxX: hw, minZ: hd - T, maxZ: hd });
+  addBox(gate, H - 5, T, 0, 5 + (H - 5) / 2, hd - T / 2, stone, null);
+  const gateDoor = mesh(new THREE.BoxGeometry(gate - 0.12, 4.7, 0.18), new THREE.MeshStandardMaterial({ color: 0x2c3238, roughness: 0.32, metalness: 0.28 }));
+  gateDoor.position.set(0, 2.35, hd - T / 2);
+  g.add(gateDoor);
+  blocks.push({ minX: -gate / 2, maxX: gate / 2, minZ: hd - T, maxZ: hd });
+  const gap = 3.2;
+  const span = (W - gap) / 2;
+  addBox(span, H, T, -hw + span / 2, H / 2, 0, dark, { minX: -hw, maxX: -gap / 2, minZ: -T / 2, maxZ: T / 2 });
+  addBox(span, H, T, hw - span / 2, H / 2, 0, dark, { minX: gap / 2, maxX: hw, minZ: -T / 2, maxZ: T / 2 });
+  addBox(gap, 0.3, T, 0, mid - 0.15, 0, dark, null);
+  addBox(gap, 0.3, T, 0, top - 0.15, 0, dark, null);
+  addBox(gap, 0.3, T, 0, H - 0.15, 0, dark, null);
+  const stair1 = { minX: -5.4, maxX: -1.3, minZ: -10.4, maxZ: -2.2, base: 0.2, top: mid };
+  const stair2 = { minX: 1.3, maxX: 5.4, minZ: -10.4, maxZ: -2.2, base: mid, top: top };
+  function roomWall(x) {
+    const z0 = stair1.minZ;
+    const backLen = -3.4 - z0;
+    addBox(T, H, backLen, x, H / 2, (z0 + -3.4) / 2, dark, { minX: x - T / 2, maxX: x + T / 2, minZ: z0, maxZ: -3.4 });
+    addBox(T, H, 3.4, x, H / 2, -1.7, dark, { minX: x - T / 2, maxX: x + T / 2, minZ: -3.4, maxZ: 0 });
+  }
+  roomWall(-8);
+  roomWall(8);
+  addBox(W - T * 2, 0.16, D - T * 2, 0, 0.08, 0, floorMat, null);
+  function addStair(s) {
+    const steps = 12;
+    const tread = (s.maxZ - s.minZ) / steps;
+    const stairW = s.maxX - s.minX;
+    for (let i = 0; i < steps; i++) {
+      const z = s.maxZ - tread * (i + 0.5);
+      const y = s.base + ((i + 1) / steps) * (s.top - s.base);
+      addBox(stairW, 0.22, tread + 0.04, (s.minX + s.maxX) / 2, y, z, stone, null);
+    }
+  }
+  function addFloor(y, hole) {
+    const x0 = -hw + T;
+    const x1 = hw - T;
+    const z0 = -hd + T;
+    const z1 = hd - T;
+    addBox(hole.minX - x0, 0.24, z1 - z0, (x0 + hole.minX) / 2, y, (z0 + z1) / 2, floorMat, null);
+    addBox(x1 - hole.maxX, 0.24, z1 - z0, (hole.maxX + x1) / 2, y, (z0 + z1) / 2, floorMat, null);
+    addBox(hole.maxX - hole.minX, 0.24, hole.minZ - z0, (hole.minX + hole.maxX) / 2, y, (z0 + hole.minZ) / 2, floorMat, null);
+    addBox(hole.maxX - hole.minX, 0.24, z1 - hole.maxZ, (hole.minX + hole.maxX) / 2, y, (hole.maxZ + z1) / 2, floorMat, null);
+  }
+  addStair(stair1);
+  addStair(stair2);
+  addFloor(mid, stair1);
+  addFloor(top, stair2);
+  const lamp = new THREE.Group();
+  buildLamp(lamp);
+  lamp.position.set(-6, top + 0.14, 7);
+  lamp.userData.role = "balcony-lamp";
+  g.add(lamp);
+  const corners = [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]];
+  for (let i = 0; i < corners.length; i++) {
+    const cx = corners[i][0];
+    const cz = corners[i][1];
+    const shaft = mesh(new THREE.CylinderGeometry(2.15, 2.45, 16.5, 8), stone);
+    shaft.position.set(cx, 8.25, cz);
+    const cap = mesh(new THREE.ConeGeometry(2.8, 3.2, 8), roofMat);
+    cap.position.set(cx, 18.1, cz);
+    g.add(shaft, cap);
+    blocks.push({ minX: cx - 2.2, maxX: cx + 2.2, minZ: cz - 2.2, maxZ: cz + 2.2 });
+  }
+  for (let i = 0; i < 18; i++) {
+    if (i % 2) continue;
+    const x = -hw + T + (i + 0.5) * ((W - T * 2) / 18);
+    if (Math.abs(x) < gate / 2 + 0.5) continue;
+    addBox(0.85, 0.75, 0.7, x, H + 0.38, hd - T / 2, stone, null);
+    addBox(0.85, 0.75, 0.7, x, H + 0.38, -hd + T / 2, stone, null);
+  }
+  g.userData.castle = {
+    blocks: blocks, hw: hw, hd: hd,
+    stairs: [stair1, stair2],
+    floors: [{ y: mid, hole: stair1 }, { y: top, hole: stair2 }]
+  };
+}
+
+function buildTower(g) {
+  const shaft = mesh(new THREE.CylinderGeometry(0.62, 0.85, 3.3, 18), stoneMat);
+  shaft.position.y = 1.65;
+  const roof = mesh(new THREE.ConeGeometry(1.15, 1.15, 18), new THREE.MeshStandardMaterial({ color: 0x7c342c, roughness: 0.7 }));
+  roof.position.y = 3.7;
+  g.add(shaft, roof);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const win = mesh(new THREE.SphereGeometry(0.12, 10, 8), glassMat);
+    win.position.set(Math.cos(a) * 0.72, 2.1, Math.sin(a) * 0.72);
+    g.add(win);
+  }
+}
+
+function buildWall(g) {
+  const body = mesh(new THREE.BoxGeometry(6.2, 1.35, 0.32), plasterMat);
+  body.position.y = 0.68;
+  const cap = mesh(new THREE.CylinderGeometry(0.16, 0.16, 6.2, 12), plasterMat);
+  cap.rotation.z = Math.PI / 2;
+  cap.position.y = 1.35;
+  g.add(body, cap);
+}
+
+function buildBridge(g) {
+  const steps = 18;
+  const len = 8;
+  const verts = [];
+  const idx = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = (t - 0.5) * len;
+    const y = Math.sin(t * Math.PI) * 1.05 + 0.12;
+    verts.push(x, y, -0.7, x, y, 0.7);
+    if (i < steps) {
+      const a = i * 2;
+      idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  g.add(mesh(geo, woodMat));
+  for (const z of [-0.7, 0.7]) {
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      pts.push(new THREE.Vector3((t - 0.5) * len, Math.sin(t * Math.PI) * 1.05 + 0.42, z));
+    }
+    g.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.035, 6, false), woodMat));
+  }
+}
+
+function buildCloud(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.92, depthWrite: false });
+  const blobs = [[0, 0, 0, 1.5], [1.5, 0.25, 0.2, 1.1], [-1.4, 0.1, -0.2, 1], [0.4, 0.35, -0.7, 0.8], [0.2, -0.05, 0.9, 0.75]];
+  for (let i = 0; i < blobs.length; i++) {
+    const b = blobs[i];
+    const s = mesh(new THREE.SphereGeometry(b[3], 16, 12), mat, false);
+    s.position.set(b[0], b[1], b[2]);
+    g.add(s);
+  }
+}
+
+function buildQuad(g, a) {
+  const S = a.s * (0.82 + Math.random() * 0.4);
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(a.color).offsetHSL((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.14),
+    roughness: a.fluff ? 1 : 0.65 + Math.random() * 0.2
+  });
+  const body = mesh(new THREE.CapsuleGeometry(a.bodyR * S, a.bodyL * S, 4, 12), mat);
+  body.rotation.z = Math.PI / 2;
+  body.position.y = a.leg * S;
+  g.add(body);
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = mesh(new THREE.CapsuleGeometry(0.055 * S, a.leg * S * 0.7, 3, 8), mat);
+      leg.position.set(sx * a.bodyL * S * 0.32, a.leg * S * 0.42, sz * a.bodyR * S * 0.85);
+      leg.userData.part = "leg";
+      leg.userData.side = sx * sz;
+      g.add(leg);
+    }
+  }
+  const head = mesh(new THREE.SphereGeometry(a.head * S, 16, 12), mat);
+  head.position.set(a.bodyL * S * 0.55, a.leg * S + a.head * S * 0.8, 0);
+  g.add(head);
+  const snout = mesh(new THREE.SphereGeometry(a.head * S * 0.45, 10, 8), mat);
+  snout.position.set(head.position.x + a.head * S * 0.7, head.position.y - a.head * S * 0.1, 0);
+  g.add(snout);
+  if (a.ear) {
+    for (const side of [-1, 1]) {
+      const ear = mesh(new THREE.CapsuleGeometry(0.03 * S, a.ear * S, 2, 6), mat);
+      ear.position.set(head.position.x, head.position.y + a.ear * S * 0.35, side * a.head * S * 0.45);
+      g.add(ear);
+    }
+  }
+  if (a.antler) {
+    for (const side of [-1, 1]) {
+      const ant = mesh(new THREE.ConeGeometry(0.03 * S, 0.28 * S, 6), mat);
+      ant.position.set(head.position.x, head.position.y + 0.22 * S, side * 0.06 * S);
+      g.add(ant);
+    }
+  }
+  const tail = mesh(new THREE.CapsuleGeometry(0.04 * S, 0.22 * S, 2, 6), mat);
+  tail.position.set(-a.bodyL * S * 0.55, a.leg * S + 0.05, 0);
+  tail.rotation.z = Math.PI / 2.6;
+  tail.userData.part = "tail";
+  g.add(tail);
+}
+
+function buildBird(g, color) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+  const body = mesh(new THREE.SphereGeometry(0.16, 14, 12), mat);
+  body.scale.set(1.5, 0.75, 0.7);
+  const wing = mesh(new THREE.SphereGeometry(0.14, 12, 8), mat);
+  wing.scale.set(0.25, 0.08, 1.3);
+  wing.position.set(0, 0.02, 0.12);
+  const wing2 = wing.clone();
+  wing2.position.z = -0.12;
+  const beak = mesh(new THREE.ConeGeometry(0.035, 0.12, 8), new THREE.MeshStandardMaterial({ color: 0xe0b15a, roughness: 0.45 }));
+  beak.rotation.z = -Math.PI / 2;
+  beak.position.x = 0.26;
+  g.add(body, wing, wing2, beak);
+}
+
+function buildFish(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xde7a32, roughness: 0.35, metalness: 0.2 });
+  const body = mesh(new THREE.SphereGeometry(0.2, 16, 12), mat);
+  body.scale.set(1.8, 0.62, 0.48);
+  body.position.y = 0.1;
+  const tail = mesh(new THREE.ConeGeometry(0.09, 0.18, 8), mat);
+  tail.rotation.z = Math.PI / 2;
+  tail.position.set(-0.36, 0.1, 0);
+  g.add(body, tail);
+}
+
+function buildFowl(g, color, comb) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.68 });
+  const body = mesh(new THREE.SphereGeometry(0.26, 16, 12), mat);
+  body.scale.set(1.15, 0.9, 0.85);
+  body.position.y = 0.4;
+  const head = mesh(new THREE.SphereGeometry(0.13, 14, 12), mat);
+  head.position.set(0.22, 0.58, 0);
+  const beak = mesh(new THREE.ConeGeometry(0.035, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0xf0b429, roughness: 0.4 }));
+  beak.rotation.z = -Math.PI / 2;
+  beak.position.set(0.36, 0.56, 0);
+  g.add(body, head, beak);
+  if (comb) {
+    const c = mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshStandardMaterial({ color: 0xc43737, roughness: 0.5 }));
+    c.position.set(0.18, 0.72, 0);
+    g.add(c);
+  }
+  for (const z of [-0.05, 0.05]) {
+    const leg = mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6), new THREE.MeshStandardMaterial({ color: 0xe0b15a, roughness: 0.45 }));
+    leg.position.set(0, 0.11, z);
+    g.add(leg);
+  }
+}
+
+function buildHuman(g, opt) {
+  opt = Object.assign({}, opt, {
+    s: opt.s * (0.88 + Math.random() * 0.28),
+    skin: randColor(0.04, 0.1, 0.35, 0.6, 0.35, 0.72),
+    shirt: randColor(0, 1, 0.25, 0.7, 0.28, 0.62),
+    pants: randColor(0.55, 0.75, 0.05, 0.4, 0.12, 0.4),
+    hair: randColor(0.02, 0.12, 0.2, 0.8, 0.08, 0.45),
+    long: Math.random() > 0.45,
+    broad: Math.random() > 0.5,
+    head: (opt.head || 1) * (0.9 + Math.random() * 0.22)
+  });
+  const S = opt.s;
+  const skin = new THREE.MeshStandardMaterial({ color: opt.skin, roughness: 0.58, metalness: 0.02 });
+  const shirt = new THREE.MeshStandardMaterial({ color: opt.shirt, roughness: 0.82 });
+  const pants = new THREE.MeshStandardMaterial({ color: opt.pants, roughness: 0.84 });
+  const hair = new THREE.MeshStandardMaterial({ color: opt.hair, roughness: 0.65 });
+  const shoe = new THREE.MeshStandardMaterial({ color: 0x2c2622, roughness: 0.55 });
+  function cap(r, len, material) {
+    return mesh(new THREE.CapsuleGeometry(r, len, 5, 12), material);
+  }
+  for (const x of [-0.11, 0.11]) {
+    const hip = new THREE.Group();
+    hip.position.set(x * S, 0.58 * S, 0);
+    hip.userData.part = "leg";
+    hip.userData.side = x;
+    const leg = cap(0.085 * S, 0.38 * S, pants);
+    leg.position.y = -0.2 * S;
+    const foot = mesh(new THREE.SphereGeometry(0.09 * S, 12, 10), shoe);
+    foot.scale.set(1, 0.5, 1.45);
+    foot.position.set(0, -0.48 * S, 0.06 * S);
+    hip.add(leg, foot);
+    g.add(hip);
+  }
+  const torso = cap(0.2 * S, 0.36 * S, shirt);
+  torso.position.y = 0.95 * S;
+  torso.scale.x = opt.broad ? 1.15 : 1;
+  const neck = mesh(new THREE.CylinderGeometry(0.055 * S, 0.07 * S, 0.12 * S, 12), skin);
+  neck.position.y = 1.28 * S;
+  g.add(neck);
+  for (const x of [-1, 1]) {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(x * 0.3 * S, 1.16 * S, 0);
+    shoulder.userData.part = "arm";
+    shoulder.userData.side = x;
+    shoulder.rotation.z = x * -0.08;
+    const arm = cap(0.065 * S, 0.32 * S, x === 1 ? shirt : skin);
+    arm.position.y = -0.2 * S;
+    const hand = mesh(new THREE.SphereGeometry(0.055 * S, 10, 8), skin);
+    hand.position.y = -0.42 * S;
+    shoulder.add(arm, hand);
+    g.add(shoulder);
+  }
+  const head = mesh(new THREE.SphereGeometry(0.155 * S * opt.head, 22, 16), skin);
+  head.scale.set(1, 1.12, 1.02);
+  head.position.y = 1.48 * S;
+  const hairMesh = mesh(new THREE.SphereGeometry(0.165 * S * opt.head, 18, 14), hair);
+  hairMesh.scale.set(1.02, opt.long ? 1.2 : 0.62, 1.06);
+  hairMesh.position.y = (opt.long ? 1.5 : 1.58) * S;
+  g.add(torso, head, hairMesh);
+  const white = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.25 });
+  const pupil = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.2 });
+  for (const x of [-1, 1]) {
+    const eye = mesh(new THREE.SphereGeometry(0.026 * S, 10, 8), white);
+    eye.position.set(x * 0.055 * S, 1.5 * S, 0.135 * S);
+    const p = mesh(new THREE.SphereGeometry(0.013 * S, 8, 8), pupil);
+    p.position.set(x * 0.055 * S, 1.5 * S, 0.158 * S);
+    g.add(eye, p);
+  }
+  const nose = mesh(new THREE.SphereGeometry(0.02 * S, 8, 8), skin);
+  nose.position.set(0, 1.46 * S, 0.16 * S);
+  g.add(nose);
+}
+
+function buildChair(g) {
+  const seat = mesh(new THREE.CylinderGeometry(0.28, 0.3, 0.07, 18), woodMat);
+  seat.position.y = 0.48;
+  const back = mesh(new THREE.SphereGeometry(0.26, 14, 10), woodMat);
+  back.scale.set(0.95, 1.05, 0.22);
+  back.position.set(0, 0.86, -0.16);
+  g.add(seat, back);
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const leg = mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.46, 8), woodMat);
+    leg.position.set(x * 0.18, 0.23, z * 0.18);
+    g.add(leg);
+  }
+}
+
+function buildTable(g) {
+  const top = mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.08, 28), woodMat);
+  top.position.y = 0.76;
+  g.add(top);
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const leg = mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.72, 8), woodMat);
+    leg.position.set(x * 0.48, 0.36, z * 0.48);
+    g.add(leg);
+  }
+}
+
+function buildBed(g) {
+  const cloth = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.8 });
+  const mattress = mesh(new THREE.SphereGeometry(0.55, 18, 14), cloth);
+  mattress.scale.set(1.9, 0.28, 1.05);
+  mattress.position.y = 0.38;
+  const pillow = mesh(new THREE.SphereGeometry(0.22, 14, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }));
+  pillow.scale.set(1.2, 0.45, 0.7);
+  pillow.position.set(-0.7, 0.58, 0);
+  g.add(mattress, pillow);
+}
+
+function buildSofa(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x6d4a5e, roughness: 0.86 });
+  const seat = mesh(new THREE.SphereGeometry(0.55, 18, 14), mat);
+  seat.scale.set(1.9, 0.42, 0.85);
+  seat.position.y = 0.36;
+  const back = mesh(new THREE.SphereGeometry(0.5, 16, 12), mat);
+  back.scale.set(2, 0.7, 0.32);
+  back.position.set(0, 0.68, -0.28);
+  g.add(seat, back);
+}
+
+function buildCrate(g) {
+  const mat = new THREE.MeshStandardMaterial({ color: randColor(0.06, 0.11, 0.35, 0.65, 0.28, 0.5), roughness: 0.82 });
+  const box = mesh(new THREE.BoxGeometry(0.72, 0.62, 0.72), mat);
+  box.position.y = 0.31;
+  const lid = mesh(new THREE.BoxGeometry(0.76, 0.08, 0.76), mat);
+  lid.position.y = 0.66;
+  g.add(box, lid);
+}
+
+function buildLamp(g) {
+  const stand = mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.9, 8), metalMat);
+  stand.position.y = 0.45;
+  const base = mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.05, 16), metalMat);
+  base.position.y = 0.03;
+  const bulb = mesh(new THREE.SphereGeometry(0.12, 16, 12), new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffe2a8, emissiveIntensity: 0.7, roughness: 0.35 }));
+  bulb.position.y = 0.98;
+  const light = new THREE.PointLight(0xffe2b0, 1.6, 9, 2);
+  light.position.y = 0.98;
+  g.add(stand, base, bulb, light);
+  interactables.push({ mesh: g, kind: "lamp", lit: true, bulb, light, radius: 2.6 });
+}
+
+function buildShelf(g) {
+  for (let i = 0; i < 3; i++) {
+    const board = mesh(new THREE.BoxGeometry(1.1, 0.05, 0.32), woodMat);
+    board.position.y = 0.25 + i * 0.38;
+    g.add(board);
+  }
+  const sideL = mesh(new THREE.BoxGeometry(0.05, 1.15, 0.32), woodMat);
+  sideL.position.set(-0.55, 0.58, 0);
+  const sideR = sideL.clone();
+  sideR.position.x = 0.55;
+  g.add(sideL, sideR);
+  const colors = [0x8d3a3a, 0x2f4d6e, 0xc2a15a, 0x3d6b45];
+  for (let i = 0; i < 4; i++) {
+    const book = mesh(new THREE.BoxGeometry(0.08, 0.28, 0.2), new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.7 }));
+    book.position.set(-0.3 + i * 0.16, 0.44, 0);
+    g.add(book);
+  }
+}
+
+function buildCar(g, color, stretch) {
+  const paint = new THREE.MeshStandardMaterial({
+    color: randColor(0, 1, 0.25, 0.8, 0.16, 0.55),
+    roughness: 0.28,
+    metalness: 0.55
+  });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1c1e22, roughness: 0.45, metalness: 0.4 });
+  const len = (2.3 + Math.random() * 0.7) * (stretch || 1);
+  const wid = 1.05 + Math.random() * 0.2;
+  const bodyH = 0.42 + Math.random() * 0.12;
+  const body = mesh(new THREE.BoxGeometry(len, bodyH, wid), paint);
+  body.position.y = 0.46;
+  const skirt = mesh(new THREE.BoxGeometry(len * 0.96, 0.16, wid * 0.92), dark);
+  skirt.position.y = 0.28;
+  const cabH = 0.38 + Math.random() * 0.12;
+  const cab = mesh(new THREE.BoxGeometry(len * 0.48, cabH, wid * 0.86), glassMat);
+  cab.position.set(-len * 0.04, 0.46 + bodyH * 0.5 + cabH * 0.42, 0);
+  const hood = mesh(new THREE.BoxGeometry(len * 0.28, 0.06, wid * 0.7), paint);
+  hood.position.set(len * 0.3, 0.46 + bodyH * 0.45, 0);
+  const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff1c4, emissive: 0xffe2a0, emissiveIntensity: 0.6, roughness: 0.2 });
+  for (const z of [-1, 1]) {
+    const lamp = mesh(new THREE.BoxGeometry(0.08, 0.1, 0.16), lightMat);
+    lamp.position.set(len * 0.48, 0.5, z * wid * 0.32);
+    g.add(lamp);
+  }
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.75 });
+  const hub = new THREE.MeshStandardMaterial({ color: 0xc5c8ce, roughness: 0.3, metalness: 0.8 });
+  const xs = stretch > 1.2 ? [-len * 0.32, 0, len * 0.32] : [-len * 0.32, len * 0.3];
+  for (const x of xs) {
+    for (const z of [-1, 1]) {
+      const wheel = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.16, 16), rubber);
+      wheel.rotation.x = Math.PI / 2;
+      wheel.position.set(x, 0.24, z * (wid * 0.5 + 0.02));
+      const cap = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.18, 12), hub);
+      cap.rotation.x = Math.PI / 2;
+      cap.position.copy(wheel.position);
+      g.add(wheel, cap);
+    }
+  }
+  g.add(body, skirt, cab, hood);
+}
+
+function buildBike(g) {
+  const frame = new THREE.MeshStandardMaterial({ color: 0xc4493a, roughness: 0.4, metalness: 0.4 });
+  const wheelGeo = new THREE.TorusGeometry(0.36, 0.035, 8, 20);
+  for (const x of [-0.7, 0.7]) {
+    const w = mesh(wheelGeo, metalMat);
+    w.position.set(x, 0.36, 0);
+    g.add(w);
+  }
+  const bar = mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.3, 8), frame);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.y = 0.55;
+  const seat = mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 }));
+  seat.scale.set(1.4, 0.4, 0.8);
+  seat.position.set(-0.25, 0.78, 0);
+  const post = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.28, 6), frame);
+  post.position.set(-0.25, 0.66, 0);
+  g.add(bar, seat, post);
+}
+
+function buildBoat(g) {
+  const hull = mesh(new THREE.SphereGeometry(0.9, 20, 14), woodMat);
+  hull.scale.set(1.5, 0.38, 0.62);
+  hull.position.y = 0.18;
+  const seat = mesh(new THREE.BoxGeometry(0.4, 0.06, 0.7), woodMat);
+  seat.position.y = 0.32;
+  g.add(hull, seat);
+}
+
+function buildApple(g) {
+  const fruit = mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshStandardMaterial({ color: 0xc83b3b, roughness: 0.4 }));
+  fruit.position.y = 0.16;
+  const stem = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.08, 6), barkMat);
+  stem.position.y = 0.32;
+  g.add(fruit, stem);
+}
+
+function buildBread(g) {
+  const loaf = mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshStandardMaterial({ color: 0xd8a15a, roughness: 0.72 }));
+  loaf.scale.set(1.4, 0.7, 0.8);
+  loaf.position.y = 0.14;
+  g.add(loaf);
+}
+
+function buildCake(g) {
+  const cake = mesh(new THREE.CylinderGeometry(0.28, 0.3, 0.22, 24), new THREE.MeshStandardMaterial({ color: 0xf0d2c2, roughness: 0.55 }));
+  cake.position.y = 0.14;
+  const top = mesh(new THREE.SphereGeometry(0.07, 12, 10), new THREE.MeshStandardMaterial({ color: 0xfff7fb, roughness: 0.4 }));
+  top.position.set(0, 0.28, 0);
+  g.add(cake, top);
+}
+
+function buildAxe(g) {
+  const handle = mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.9, 8), woodMat);
+  handle.position.y = 0.45;
+  const head = mesh(new THREE.ConeGeometry(0.12, 0.28, 4), metalMat);
+  head.rotation.z = Math.PI / 2;
+  head.position.set(0.12, 0.88, 0);
+  g.add(handle, head);
+}
+
+function buildHammer(g) {
+  const handle = mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.7, 8), woodMat);
+  handle.position.y = 0.35;
+  const head = mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.28, 12), metalMat);
+  head.rotation.z = Math.PI / 2;
+  head.position.y = 0.72;
+  g.add(handle, head);
+}
+
+function buildHat(g) {
+  const felt = new THREE.MeshStandardMaterial({ color: 0x3d2a22, roughness: 0.86 });
+  const brim = mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.035, 20), felt);
+  brim.position.y = 0.06;
+  const crown = mesh(new THREE.SphereGeometry(0.15, 16, 12), felt);
+  crown.scale.y = 1.15;
+  crown.position.y = 0.2;
+  g.add(brim, crown);
+}
+
+function buildClothes(g) {
+  const shirt = mesh(new THREE.SphereGeometry(0.26, 16, 12), new THREE.MeshStandardMaterial({ color: 0xd8d2c8, roughness: 0.85 }));
+  shirt.scale.set(1.25, 0.32, 0.9);
+  shirt.position.y = 0.1;
+  g.add(shirt);
+}
+
+function buildPhone(g) {
+  const body = mesh(new THREE.SphereGeometry(0.18, 16, 12), new THREE.MeshStandardMaterial({ color: 0x16181c, roughness: 0.3, metalness: 0.55 }));
+  body.scale.set(0.62, 0.08, 1.25);
+  body.position.y = 0.035;
+  const screen = mesh(new THREE.SphereGeometry(0.14, 12, 10), new THREE.MeshStandardMaterial({ color: 0x8ec0ea, emissive: 0x163044, roughness: 0.18 }));
+  screen.scale.set(0.48, 0.045, 1.05);
+  screen.position.y = 0.055;
+  g.add(body, screen);
+}
+
+function buildComputer(g) {
+  const panel = mesh(new THREE.BoxGeometry(0.7, 0.46, 0.04), new THREE.MeshStandardMaterial({ color: 0x22262c, roughness: 0.4, metalness: 0.4 }));
+  panel.position.y = 0.55;
+  const screen = mesh(new THREE.BoxGeometry(0.6, 0.36, 0.02), new THREE.MeshStandardMaterial({ color: 0x9fd0f0, emissive: 0x183044, roughness: 0.2 }));
+  screen.position.set(0, 0.55, 0.03);
+  const neck = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.22, 8), metalMat);
+  neck.position.y = 0.26;
+  const base = mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.03, 16), metalMat);
+  base.position.y = 0.14;
+  g.add(panel, screen, neck, base);
+}
+
+function buildTV(g) {
+  const panel = mesh(new THREE.BoxGeometry(1.15, 0.68, 0.05), new THREE.MeshStandardMaterial({ color: 0x1c1e22, roughness: 0.35, metalness: 0.45 }));
+  panel.position.y = 0.62;
+  const screen = mesh(new THREE.BoxGeometry(1.02, 0.56, 0.02), new THREE.MeshStandardMaterial({ color: 0x101820, emissive: 0x0c1c28, roughness: 0.25 }));
+  screen.position.set(0, 0.62, 0.035);
+  const stand = mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.28, 12), metalMat);
+  stand.position.y = 0.16;
+  g.add(panel, screen, stand);
+}
+
+function buildRoad(g, x, z, yaw) {
+  const len = 26;
+  const width = 1.7;
+  const steps = 22;
+  const dirx = Math.sin(yaw);
+  const dirz = Math.cos(yaw);
+  const sx = dirz;
+  const sz = -dirx;
+  const verts = [];
+  const idx = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps - 0.5) * len;
+    const cx = x + dirx * t;
+    const cz = z + dirz * t;
+    const y = walkY(cx, cz) + 0.07;
+    verts.push(cx + sx * width, y, cz + sz * width, cx - sx * width, y, cz - sz * width);
+    if (i < steps) {
+      const a = i * 2;
+      idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const road = mesh(geo, new THREE.MeshStandardMaterial({ color: 0x4a4e53, roughness: 0.9 }));
+  g.add(road);
+}
+
+const CATALOG = [];
+
+function addSpec(spec) {
+  CATALOG.push(spec);
+}
+
+addSpec({ id: "pine", label: "松树", unit: "棵", words: ["松树", "pine"], radius: 1.3, height: 4.6, build: (g) => { buildPine(g); g.scale.setScalar(1.7); } });
+addSpec({ id: "tree", label: "树", unit: "棵", words: ["大树", "树", "tree", "trees"], radius: 1.3, height: 4.1, build: (g) => buildTree(g, 1.75) });
+addSpec({ id: "flower", label: "花", unit: "朵", words: ["花朵", "花", "flower", "flowers"], radius: 0.25, height: 0.55, solid: false, build: buildFlower });
+addSpec({ id: "grass", label: "草", unit: "丛", words: ["草地", "草", "grass"], radius: 0.4, height: 0.4, solid: false, build: buildGrass });
+addSpec({ id: "bush", label: "灌木", unit: "丛", words: ["灌木", "bush"], radius: 0.5, height: 0.7, build: buildBush });
+addSpec({ id: "rock", label: "石头", unit: "块", words: ["石头", "岩石", "rock", "rocks", "boulder"], radius: 0.55, height: 0.55, build: buildRock });
+addSpec({ id: "glass", label: "玻璃", unit: "块", words: ["玻璃", "glass"], radius: 0.4, height: 0.7, build: buildGlass });
+addSpec({ id: "wood", label: "木头", unit: "根", words: ["木头", "木材", "wood", "log"], radius: 0.3, height: 0.95, build: buildWood });
+addSpec({ id: "sandpile", label: "沙堆", unit: "堆", words: ["沙堆"], radius: 0.45, height: 0.35, build: buildSandPile });
+addSpec({ id: "crate", label: "木箱", unit: "个", words: ["木箱", "箱子", "crate"], radius: 0.45, height: 0.75, build: buildCrate });
+addSpec({ id: "mountain", label: "山", unit: "座", words: ["山脉", "山峰", "山", "mountain", "hill"], terrain: true });
+addSpec({ id: "river", label: "河", unit: "条", words: ["河水", "河流", "小河", "river", "河"], terrain: true });
+addSpec({ id: "lake", label: "湖", unit: "片", words: ["湖泊", "湖水", "lake", "湖"], terrain: true });
+addSpec({ id: "water", label: "水", unit: "滩", words: ["水坑", "water", "水"], terrain: true });
+addSpec({ id: "sand", label: "沙", unit: "片", words: ["沙滩", "沙子", "sand", "沙"], terrain: true });
+addSpec({ id: "cloud", label: "云", unit: "朵", words: ["云朵", "云彩", "cloud", "clouds", "云"], radius: 2, height: 1, solid: false, behavior: "sky", build: buildCloud });
+addSpec({ id: "road", label: "路", unit: "条", words: ["道路", "马路", "road", "路"], radius: 1, height: 0.1, solid: false, behavior: "static", world: true });
+addSpec({ id: "house", label: "房子", unit: "座", words: ["房子", "房屋", "house", "home"], radius: 2.1, height: 3.4, build: (g) => buildHouse(g, 3, 0x8c3a32) });
+addSpec({ id: "castle", label: "城堡", unit: "座", words: ["城堡", "castle"], radius: 18, height: 14, build: buildCastle });
+addSpec({ id: "cabin", label: "小屋", unit: "座", words: ["小屋", "cabin", "cottage"], radius: 1.3, height: 2.1, build: (g) => buildHouse(g, 0.72, 0x6e4a32) });
+addSpec({ id: "tower", label: "塔", unit: "座", words: ["塔楼", "tower", "塔"], radius: 1, height: 4.2, build: buildTower });
+addSpec({ id: "wall", label: "墙", unit: "道", words: ["围墙", "wall", "墙"], radius: 1.2, height: 1.5, build: buildWall });
+addSpec({ id: "bridge", label: "桥", unit: "座", words: ["bridge", "桥"], radius: 1.5, height: 1.3, solid: false, build: buildBridge });
+
+const QUADS = [
+  { id: "dog", label: "狗", unit: "只", words: ["狗", "dog"], s: 0.85, color: 0xc08a4e, bodyR: 0.22, bodyL: 0.55, leg: 0.42, head: 0.16, radius: 0.5, height: 0.7 },
+  { id: "cat", label: "猫", unit: "只", words: ["猫", "cat"], s: 0.55, color: 0xd9a066, bodyR: 0.2, bodyL: 0.5, leg: 0.36, head: 0.18, ear: 0.16, radius: 0.35, height: 0.5 },
+  { id: "horse", label: "马", unit: "匹", words: ["马", "horse"], s: 1.15, color: 0x8a5a32, bodyR: 0.28, bodyL: 0.85, leg: 0.7, head: 0.18, radius: 0.8, height: 1.35 },
+  { id: "cow", label: "牛", unit: "头", words: ["牛", "cow"], s: 1.2, color: 0xf2f2f0, bodyR: 0.36, bodyL: 0.8, leg: 0.55, head: 0.2, radius: 0.85, height: 1.2 },
+  { id: "sheep", label: "羊", unit: "只", words: ["羊", "sheep"], s: 0.9, color: 0xf7f4ee, fluff: true, bodyR: 0.34, bodyL: 0.5, leg: 0.4, head: 0.14, radius: 0.55, height: 0.8 },
+  { id: "rabbit", label: "兔子", unit: "只", words: ["兔子", "兔", "rabbit"], s: 0.5, color: 0xe7e1d8, bodyR: 0.2, bodyL: 0.35, leg: 0.28, head: 0.16, ear: 0.22, radius: 0.3, height: 0.45 },
+  { id: "deer", label: "鹿", unit: "只", words: ["鹿", "deer"], s: 1, color: 0xb5834a, bodyR: 0.22, bodyL: 0.7, leg: 0.62, head: 0.14, antler: true, radius: 0.6, height: 1.15 },
+  { id: "pig", label: "猪", unit: "头", words: ["猪", "pig"], s: 0.9, color: 0xf0b6b0, bodyR: 0.32, bodyL: 0.55, leg: 0.32, head: 0.18, radius: 0.55, height: 0.7 }
+];
+for (const a of QUADS) {
+  addSpec({
+    id: a.id, label: a.label, unit: a.unit, words: a.words,
+    radius: a.radius, height: a.height,
+    behavior: a.id === "dog" ? "wander" : undefined,
+    build: (g) => buildQuad(g, a)
+  });
+}
+addSpec({ id: "bird", label: "鸟", unit: "只", words: ["小鸟", "鸟", "bird"], radius: 0.3, height: 0.3, solid: false, behavior: "bob", build: (g) => buildBird(g, 0x6d7e8c) });
+addSpec({ id: "fish", label: "鱼", unit: "条", words: ["鱼", "fish"], radius: 0.3, height: 0.2, solid: false, behavior: "float", build: buildFish });
+addSpec({ id: "chicken", label: "鸡", unit: "只", words: ["鸡", "chicken"], radius: 0.3, height: 0.7, build: (g) => buildFowl(g, 0xf2f2f2, true) });
+addSpec({ id: "duck", label: "鸭", unit: "只", words: ["鸭", "duck"], radius: 0.3, height: 0.6, build: (g) => buildFowl(g, 0xf0d24a, false) });
+
+function person(id, label, words, opt, height) {
+  addSpec({ id, label, unit: "个", words, radius: 0.35 * opt.s, height, behavior: "wander", build: (g) => buildHuman(g, opt) });
+}
+person("man", "男人", ["男人", "man"], { s: 1.05, head: 1, skin: 0xc99672, shirt: 0x3d5c8a, pants: 0x2c3140, hair: 0x2a211c, broad: true, long: false }, 1.85);
+person("woman", "女人", ["女人", "woman"], { s: 1, head: 1, skin: 0xe0b496, shirt: 0xa85268, pants: 0x343848, hair: 0x3a2418, broad: false, long: true }, 1.75);
+person("child", "小孩", ["小孩", "孩子", "儿童", "child"], { s: 0.62, head: 1.25, skin: 0xf0c2a0, shirt: 0x4f8a62, pants: 0x3a4660, hair: 0x6b4528, broad: false, long: false }, 1.15);
+person("person", "人", ["人类", "人物", "person", "人"], { s: 1, head: 1, skin: 0xd2a888, shirt: 0x6e6248, pants: 0x3a3e46, hair: 0x241c18, broad: false, long: false }, 1.75);
+
+addSpec({ id: "chair", label: "椅子", unit: "把", words: ["椅子", "chair"], radius: 0.35, height: 1.05, build: buildChair });
+addSpec({ id: "table", label: "桌子", unit: "张", words: ["餐桌", "桌子", "table"], radius: 0.75, height: 0.82, build: buildTable });
+addSpec({ id: "bed", label: "床", unit: "张", words: ["床", "bed"], radius: 1, height: 0.7, build: buildBed });
+addSpec({ id: "sofa", label: "沙发", unit: "张", words: ["沙发", "sofa"], radius: 1, height: 1, build: buildSofa });
+addSpec({ id: "lamp", label: "灯", unit: "盏", words: ["电灯", "台灯", "lamp", "灯"], radius: 0.2, height: 1.1, build: buildLamp });
+addSpec({ id: "shelf", label: "书架", unit: "个", words: ["书架", "shelf", "bookshelf"], radius: 0.6, height: 1.2, build: buildShelf });
+addSpec({ id: "truck", label: "卡车", unit: "辆", words: ["卡车", "truck"], radius: 1.4, height: 1.3, build: (g) => buildCar(g, 0xc2c6cc, 1.45) });
+addSpec({ id: "car", label: "汽车", unit: "辆", words: ["汽车", "car", "车"], radius: 1.3, height: 1.15, build: (g) => buildCar(g, 0xb23a3a, 1) });
+addSpec({ id: "bike", label: "自行车", unit: "辆", words: ["自行车", "bicycle", "bike"], radius: 0.9, height: 0.9, build: buildBike });
+addSpec({ id: "boat", label: "船", unit: "艘", words: ["小船", "boat", "船"], radius: 1.1, height: 0.5, solid: false, floats: true, build: buildBoat });
+addSpec({ id: "apple", label: "苹果", unit: "个", words: ["苹果", "apple"], radius: 0.18, height: 0.34, build: buildApple });
+addSpec({ id: "bread", label: "面包", unit: "个", words: ["面包", "bread"], radius: 0.28, height: 0.3, build: buildBread });
+addSpec({ id: "cake", label: "蛋糕", unit: "个", words: ["蛋糕", "cake"], radius: 0.3, height: 0.36, build: buildCake });
+addSpec({ id: "axe", label: "斧头", unit: "把", words: ["斧头", "axe"], radius: 0.2, height: 1, build: buildAxe });
+addSpec({ id: "hammer", label: "锤子", unit: "把", words: ["锤子", "hammer"], radius: 0.2, height: 0.85, build: buildHammer });
+addSpec({ id: "hat", label: "帽子", unit: "顶", words: ["帽子", "hat"], radius: 0.28, height: 0.35, build: buildHat });
+addSpec({ id: "clothes", label: "衣服", unit: "件", words: ["衣服", "衬衫", "clothes", "shirt"], radius: 0.3, height: 0.22, build: buildClothes });
+addSpec({ id: "phone", label: "手机", unit: "部", words: ["手机", "phone"], radius: 0.16, height: 0.08, build: buildPhone });
+addSpec({ id: "computer", label: "电脑", unit: "台", words: ["电脑", "computer"], radius: 0.4, height: 0.8, build: buildComputer });
+addSpec({ id: "tv", label: "电视", unit: "台", words: ["电视", "tv"], radius: 0.6, height: 1, build: buildTV });
+
+const byId = Object.fromEntries(CATALOG.map((s) => [s.id, s]));
+const HOTBAR = [
+  { id: "rock", name: "石头" },
+  { id: "glass", name: "玻璃" },
+  { id: "wood", name: "木头" },
+  { id: "sandpile", name: "沙堆" },
+  { id: "flower", name: "花" },
+  { id: "tree", name: "树" },
+  { id: "house", name: "房子" },
+  { id: "lamp", name: "灯" },
+  { id: "person", name: "人" }
+];
+const hotbarEl = document.getElementById("hotbar");
+function renderHotbar() {
+  hotbarEl.replaceChildren();
+  HOTBAR.forEach((item, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "slot" + (i === selected ? " selected" : "");
+    b.textContent = (i + 1) + " " + item.name;
+    b.addEventListener("click", () => selectSlot(i));
+    hotbarEl.appendChild(b);
+  });
+}
+function selectSlot(i) {
+  if (i < 0 || i >= HOTBAR.length) return;
+  selected = i;
+  renderHotbar();
+}
+renderHotbar();
+
+const splashMat = new THREE.MeshBasicMaterial({ color: 0xe7f6ff, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide });
+const splashes = [];
+function makeSplash(x, z) {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.28, 28), splashMat.clone());
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, WATER + 0.08, z);
+  scene.add(ring);
+  const drops = [];
+  for (let i = 0; i < 10; i++) {
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), splashMat.clone());
+    drop.position.set(x, WATER + 0.12, z);
+    scene.add(drop);
+    drops.push({ mesh: drop, v: new THREE.Vector3((Math.random() - 0.5) * 2.6, 1.5 + Math.random() * 2.4, (Math.random() - 0.5) * 2.6) });
+  }
+  splashes.push({ ring, drops, age: 0 });
+}
+function updateSplashes(dt) {
+  for (let i = splashes.length - 1; i >= 0; i--) {
+    const s = splashes[i];
+    s.age += dt;
+    const k = Math.min(1, s.age / 0.85);
+    s.ring.scale.setScalar(1 + k * 6);
+    s.ring.material.opacity = 0.75 * (1 - k);
+    for (let d = 0; d < s.drops.length; d++) {
+      const drop = s.drops[d];
+      drop.v.y -= 9 * dt;
+      drop.mesh.position.addScaledVector(drop.v, dt);
+      drop.mesh.material.opacity = 0.8 * (1 - k);
+    }
+    if (s.age > 0.85) {
+      scene.remove(s.ring);
+      s.ring.geometry.dispose();
+      s.ring.material.dispose();
+      for (let d = 0; d < s.drops.length; d++) {
+        scene.remove(s.drops[d].mesh);
+        s.drops[d].mesh.geometry.dispose();
+        s.drops[d].mesh.material.dispose();
+      }
+      splashes.splice(i, 1);
+    }
+  }
+}
+
+function standY(x, z, feetY) {
+  let y = sampleHeight(x, z);
+  const above = feetY == null ? y : Math.max(y, feetY);
+  groundRay.set(new THREE.Vector3(x, above + 30, z), new THREE.Vector3(0, -1, 0));
+  const hit = groundRay.intersectObject(terrain, false)[0];
+  if (hit) y = Math.max(y, hit.point.y);
+  const feet = feetY == null ? y : feetY;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (!o.castle || !o.resting) continue;
+    const rise = castleRise(o, x, z, feet);
+    if (rise == null) continue;
+    y = Math.max(y, o.mesh.position.y + rise);
+  }
+  return y;
+}
+
+function supportY(o, hint) {
+  const feet = hint != null ? hint : o.mesh.position.y;
+  let y = standY(o.mesh.position.x, o.mesh.position.z, feet);
+  if (o.floats) y = Math.max(y, WATER);
+  for (let i = 0; i < objects.length; i++) {
+    const other = objects[i];
+    if (other === o || !other.resting || !other.solid) continue;
+    const dx = other.mesh.position.x - o.mesh.position.x;
+    const dz = other.mesh.position.z - o.mesh.position.z;
+    const horiz = Math.hypot(dx, dz);
+    const stand = Math.max(0.25, Math.min(o.radius || 0.4, other.radius) * 0.5);
+    if (horiz <= stand) y = Math.max(y, other.mesh.position.y + other.top);
+  }
+  if (o.foot) y -= o.foot;
+  return y;
+}
+
+function freeSpot(x, z, radius) {
+  for (let i = 0; i < 12; i++) {
+    const ang = i * 1.15;
+    const dist = i === 0 ? 0 : radius + 0.4 + i * 0.45;
+    const px = x + Math.cos(ang) * dist;
+    const pz = z + Math.sin(ang) * dist;
+    let ok = true;
+    for (let j = 0; j < objects.length; j++) {
+      const o = objects[j];
+      if (!o.solid) continue;
+      const dx = o.mesh.position.x - px;
+      const dz = o.mesh.position.z - pz;
+      const need = o.radius + radius;
+      if (dx * dx + dz * dz < need * need) ok = false;
+    }
+    if (ok) return { x: px, z: pz };
+  }
+  return { x, z };
+}
+
+function isPersonSpec(spec) {
+  return !!(spec && (spec.id === "man" || spec.id === "woman" || spec.id === "child" || spec.id === "person"));
+}
+
+function isPerson(o) {
+  return isPersonSpec(o && o.spec);
+}
+
+function giveName(spec) {
+  const pool = NAME_POOL[spec.id] || NAME_POOL.person;
+  for (let i = 0; i < pool.length; i++) {
+    if (!usedNames.has(pool[i])) {
+      usedNames.add(pool[i]);
+      return pool[i];
+    }
+  }
+  const name = pool[0] + (usedNames.size + 1);
+  usedNames.add(name);
+  return name;
+}
+
+function attachName(o) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 320;
+  canvas.height = 80;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(18,16,12,0.88)";
+  ctx.fillRect(0, 6, 320, 68);
+  ctx.strokeStyle = "#c6a15a";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 8, 316, 64);
+  ctx.fillStyle = "#f4efe4";
+  ctx.font = "bold 36px 'Noto Sans CJK SC', 'Noto Serif SC', 'Source Han Sans SC', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(o.npcName, 160, 42);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.raycast = function () {};
+  sprite.position.y = 2.2;
+  sprite.scale.set(1.9, 0.48, 1);
+  sprite.center.set(0.5, 0);
+  o.mesh.add(sprite);
+  o.nameSprite = sprite;
+}
+
+function spawn(spec, x, z, opt) {
+  opt = opt || {};
+  if (!spec) return null;
+  if (isPersonSpec(spec) && objects.filter(isPerson).length >= MAX_PEOPLE) {
+    if (!opt.quiet) speak("神谕", "人已经够多了。靠近要离开的人，按 Delete。");
+    return null;
+  }
+  const group = new THREE.Group();
+  if (spec.world) {
+    buildRoad(group, x, z, opt.yaw == null ? view.yaw : opt.yaw);
+    scene.add(group);
+    const road = { spec, mesh: group, radius: spec.radius, top: spec.height, solid: false, behavior: "static", resting: true, vy: 0, phase: 0, baseY: 0 };
+    objects.push(road);
+    return road;
+  }
+  spec.build(group);
+  let px = x;
+  let pz = z;
+  if (spec.solid !== false && spec.behavior !== "sky") {
+    const spot = freeSpot(x, z, spec.radius);
+    px = spot.x;
+    pz = spot.z;
+  }
+  group.position.set(px, 0, pz);
+  if (opt.yaw != null) group.rotation.y = opt.yaw;
+  else if (spec.behavior !== "sky" && !spec.terrain) group.rotation.y = Math.random() * Math.PI * 2;
+  scene.add(group);
+  const box = new THREE.Box3().setFromObject(group);
+  const measured = Math.max(0.2, box.max.y - Math.min(0, box.min.y));
+  const foot = Math.min(0, box.min.y - group.position.y);
+  const o = {
+    spec, mesh: group, radius: spec.radius, top: measured,
+    solid: spec.solid !== false, behavior: spec.behavior || "fall",
+    floats: !!spec.floats, splashed: false,
+    resting: false, vy: 0, phase: Math.random() * 6, baseY: 0, foot: foot
+  };
+  if (group.userData.shell) o.shell = group.userData.shell;
+  if (group.userData.castle) o.castle = group.userData.castle;
+  objects.push(o);
+  if (o.behavior === "wander") {
+    o.homeX = px;
+    o.homeZ = pz;
+    const head = Math.random() * Math.PI * 2;
+    o.goalX = px + Math.cos(head) * 3;
+    o.goalZ = pz + Math.sin(head) * 3;
+    o.pause = 0.15;
+    o.stuck = 0;
+    o.speed = spec.id === "dog" ? 1.9 : 2.05;
+    o.order = "wander";
+    o.tricks = {};
+    o.say = "";
+    o.sayT = 0;
+    o.wave = 0;
+    o.held = false;
+    group.position.y = supportY(o, opt.feet != null ? opt.feet : sampleHeight(px, pz));
+    o.resting = true;
+    if (isPerson(o)) {
+      o.npcName = opt.name || giveName(spec);
+      if (opt.name) usedNames.add(opt.name);
+      o.foe = null;
+      attachName(o);
+      o.life = "out";
+      o.lifeT = 8 + Math.random() * 6;
+      chooseWanderGoal(o);
+    }
+  } else if (o.behavior === "sky") {
+    group.position.y = 40 + Math.random() * 14;
+    o.resting = true;
+  } else if (o.behavior === "bob") {
+    o.baseY = walkY(px, pz) + 8;
+    group.position.y = o.baseY;
+    o.resting = true;
+  } else if (o.behavior === "float") {
+    group.position.y = WATER - 0.05;
+    o.resting = true;
+  } else if (opt.settle || (opt.feet != null && opt.feet > sampleHeight(px, pz) + 0.35)) {
+    group.position.y = supportY(o, opt.feet != null ? opt.feet : sampleHeight(px, pz));
+    o.resting = true;
+  } else {
+    const bed = supportY(o, opt.feet != null ? opt.feet : sampleHeight(px, pz));
+    group.position.y = (!o.floats && bed < WATER - 0.15) ? Math.max(bed + 4, WATER + 2.4) : bed + 4;
+  }
+  return o;
+}
+
+function localOf(o, lx, lz) {
+  const yaw = o.mesh.rotation.y;
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  return {
+    x: o.mesh.position.x + lx * c + lz * s,
+    z: o.mesh.position.z - lx * s + lz * c
+  };
+}
+
+function setDoor(house, open) {
+  const door = house && house.shell && house.shell.door;
+  if (!door) return;
+  door.open = !!open;
+  door.target = open ? 1.2 : 0;
+}
+
+function homePoints(person) {
+  const h = person.house;
+  const s = h.shell;
+  const mid = s.doorX + s.doorW * 0.5;
+  return {
+    outside: localOf(h, mid, s.d / 2 + 1.45),
+    inside: localOf(h, 0, -0.15)
+  };
+}
+
+function findHomePlot(x, z) {
+  for (let r = 18; r <= 78; r += 6) {
+    for (let a = 0; a < 6.28; a += 0.5) {
+      const gx = x + Math.cos(a) * r;
+      const gz = z + Math.sin(a) * r;
+      if (Math.abs(gx) > WORLD - 14 || Math.abs(gz) > WORLD - 14) continue;
+      if (sampleHeight(gx, gz) < WATER + 1) continue;
+      let crowded = false;
+      for (let i = 0; i < objects.length; i++) {
+        const o = objects[i];
+        if (!o.spec) continue;
+        const dist = Math.hypot(o.mesh.position.x - gx, o.mesh.position.z - gz);
+        if ((o.spec.id === "house" || o.spec.id === "cabin") && dist < 16) crowded = true;
+        if (o.spec.id === "castle" && dist < 28) crowded = true;
+      }
+      if (crowded) continue;
+      return { x: gx, z: gz, yaw: Math.atan2(x - gx, z - gz) };
+    }
+  }
+  return null;
+}
+
+function giveHome(person) {
+  const plot = findHomePlot(person.mesh.position.x, person.mesh.position.z);
+  if (!plot) return;
+  const house = spawn(byId.house, plot.x, plot.z, { settle: true, yaw: plot.yaw, quiet: true });
+  if (!house || !house.shell) return;
+  house.forPerson = person;
+  person.house = house;
+  const pts = homePoints(person);
+  const bed = sampleHeight(pts.outside.x, pts.outside.z);
+  person.mesh.position.set(pts.outside.x, bed < WATER + 0.3 ? house.mesh.position.y : bed, pts.outside.z);
+  person.homeX = pts.outside.x;
+  person.homeZ = pts.outside.z;
+  person.goalX = pts.outside.x + 1.2;
+  person.goalZ = pts.outside.z + 1.2;
+}
+
+function addTerrainFeature(spec, x, z) {
+  if (spec.id === "mountain") mods.push({ kind: "mountain", x, z, r: 16 + Math.random() * 8, amp: 22 + Math.random() * 10, grow: 0 });
+  else if (spec.id === "lake") mods.push({ kind: "lake", x, z, r: 16, depth: 4.2, grow: 0 });
+  else if (spec.id === "water") mods.push({ kind: "lake", x, z, r: 7, depth: 1.8, grow: 0 });
+  else if (spec.id === "river") mods.push({ kind: "river", x, z, yaw: view.yaw, len: 42, width: 4.8, grow: 0 });
+  else if (spec.id === "sand") mods.push({ kind: "sand", x, z, r: 9, grow: 1 });
+  terrainDirty = true;
+}
+
+function aimedPoint() {
+  const targets = [terrain];
+  for (let i = 0; i < objects.length; i++) if (objects[i].castle) targets.push(objects[i].mesh);
+  const hits = raycaster.intersectObjects(targets, true);
+  return hits.length ? hits[0].point : null;
+}
+
+function lookPoint() {
+  const origin = camera.position.clone();
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  raycaster.set(origin, dir);
+  return aimedPoint();
+}
+
+function pointFromEvent(ev) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  return aimedPoint();
+}
+
+const sharedMats = new Set([woodMat, barkMat, leafMat, leafMat2, stoneMat, plasterMat, metalMat, glassMat]);
+
+function disposeTree(root) {
+  const seen = new Set();
+  root.traverse((node) => {
+    if (!node.isMesh) return;
+    if (node.geometry && !seen.has(node.geometry)) {
+      seen.add(node.geometry);
+      node.geometry.dispose();
+    }
+    const mats = Array.isArray(node.material) ? node.material : [node.material];
+    for (let i = 0; i < mats.length; i++) {
+      const mat = mats[i];
+      if (!mat || sharedMats.has(mat) || seen.has(mat)) continue;
+      seen.add(mat);
+      if (mat.map && mat.map !== plasterMap && mat.map !== barkMap) mat.map.dispose();
+      mat.dispose();
+    }
+  });
+}
+
+function removeObject(o) {
+  const i = objects.indexOf(o);
+  if (i < 0) return false;
+  for (let k = interactables.length - 1; k >= 0; k--) {
+    let node = interactables[k].mesh;
+    while (node && node !== o.mesh) node = node.parent;
+    if (node === o.mesh) interactables.splice(k, 1);
+  }
+  scene.remove(o.mesh);
+  disposeTree(o.mesh);
+  objects.splice(i, 1);
+  return true;
+}
+
+function renderBag() {
+  bagEl.textContent = "背包　木头 " + bag.wood + "　木板 " + bag.plank + "　木棍 " + bag.stick;
+}
+
+function placeInFront(spec) {
+  const dist = 2.4;
+  spawn(spec, view.target.x - Math.sin(view.yaw) * dist, view.target.z - Math.cos(view.yaw) * dist, { yaw: view.yaw, feet: body.y });
+}
+
+function craft(id) {
+  const recipes = {
+    plank: { need: { wood: 1 }, give: { plank: 4 }, say: "四块木板做好了。" },
+    stick: { need: { plank: 2 }, give: { stick: 4 }, say: "四根木棍做好了。" },
+    crate: { need: { plank: 4 }, place: "crate", say: "木箱放在你面前了。" },
+    torch: { need: { wood: 1, stick: 2 }, place: "lamp", say: "火把放在你面前了。" }
+  };
+  const recipe = recipes[id];
+  if (!recipe) return false;
+  for (const key of Object.keys(recipe.need)) {
+    if (bag[key] < recipe.need[key]) {
+      speak("神谕", "材料不够。走近树，按 E 砍下木头，再来制作。");
+      return false;
+    }
+  }
+  for (const key of Object.keys(recipe.need)) bag[key] -= recipe.need[key];
+  if (recipe.give) {
+    for (const key of Object.keys(recipe.give)) bag[key] += recipe.give[key];
+  }
+  if (recipe.place) placeInFront(byId[recipe.place]);
+  renderBag();
+  speak("神谕", recipe.say);
+  return true;
+}
+
+function tryCraftCommand(text) {
+  if (/背包|库存/.test(text)) {
+    speak("神谕", "背包里有木头 " + bag.wood + "、木板 " + bag.plank + "、木棍 " + bag.stick + "。");
+    return true;
+  }
+  if (/制作|合成|打造|craft/.test(text)) {
+    speak("神谕", "制作菜单已经收起来了。");
+    return true;
+  }
+  return false;
+}
+
+function noteGenerationOff() {
+  const now = performance.now();
+  if (now - genNoteAt < 1600) return;
+  genNoteAt = now;
+  speak("神谕", "生成先停着。「生成它」认不出「它」是哪一件，只会把快捷栏里的东西扔到地上。");
+}
+
+function interactPrompt(it) {
+  if (it.kind === "door") return it.open ? "按 E 关门" : "按 E 开门";
+  if (it.kind === "lamp") return it.lit ? "按 E 关灯" : "按 E 开灯";
+  if (it.kind === "tree") return "按 E 砍树";
+  if (it.kind === "person") return "按 E 和" + it.object.npcName + "说话";
+  return "按 E";
+}
+
+function isTree(o) {
+  return !!(o && o.spec && (o.spec.id === "tree" || o.spec.id === "pine"));
+}
+
+function flatDist(mesh, x, z) {
+  mesh.getWorldPosition(promptV);
+  return Math.hypot(promptV.x - x, promptV.z - z);
+}
+
+function nearestTree(maxDist) {
+  let best = null;
+  let bestD = maxDist;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (!isTree(o)) continue;
+    const dist = flatDist(o.mesh, view.target.x, view.target.z);
+    if (dist < bestD) {
+      best = { mesh: o.mesh, kind: "tree", object: o, radius: maxDist };
+      bestD = dist;
+    }
+  }
+  return best;
+}
+
+function treeInSight() {
+  const origin = camera.position.clone();
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  raycaster.set(origin, dir);
+  const hits = raycaster.intersectObjects(objects.map((o) => o.mesh), true);
+  for (let i = 0; i < hits.length; i++) {
+    let node = hits[i].object;
+    while (node && objects.every((o) => o.mesh !== node)) node = node.parent;
+    const found = objects.find((o) => o.mesh === node);
+    if (isTree(found) && flatDist(found.mesh, view.target.x, view.target.z) < 14) {
+      return { mesh: found.mesh, kind: "tree", object: found, radius: 14 };
+    }
+  }
+  return null;
+}
+
+function nearestInteract() {
+  const px = view.target.x;
+  const pz = view.target.z;
+  let best = null;
+  let bestD = Infinity;
+  const consider = (it, dist) => {
+    if (dist < bestD) {
+      best = it;
+      bestD = dist;
+    }
+  };
+  const person = nearestPersonObject(4.6);
+  if (person) {
+    consider(
+      { mesh: person.mesh, kind: "person", object: person },
+      Math.hypot(person.mesh.position.x - px, person.mesh.position.z - pz)
+    );
+  }
+  for (let i = 0; i < interactables.length; i++) {
+    const it = interactables[i];
+    const dist = flatDist(it.mesh, px, pz);
+    const reach = it.kind === "door" ? 2.6 : (it.radius || 2.4);
+    if (dist <= reach) consider(it, dist);
+  }
+  const tree = treeInSight() || nearestTree(8);
+  if (tree) consider(tree, flatDist(tree.mesh, px, pz));
+  return best;
+}
+
+function updateInteract(dt) {
+  for (let i = 0; i < interactables.length; i++) {
+    const it = interactables[i];
+    if (it.kind !== "door") continue;
+    it.angle += (it.target - it.angle) * Math.min(1, dt * 7);
+    it.mesh.rotation.y = it.angle;
+  }
+  const near = nearestInteract();
+  if (!near) {
+    promptEl.hidden = true;
+    return;
+  }
+  near.mesh.getWorldPosition(promptV);
+  promptV.y += near.kind === "tree" ? 2.2 : near.kind === "person" ? 2.05 : 1.7;
+  camera.getWorldDirection(lookDir);
+  const facing = promptV.clone().sub(camera.position).dot(lookDir);
+  const p = promptV.clone().project(camera);
+  const w = stage.clientWidth || 1;
+  const h = stage.clientHeight || 1;
+  let x = (p.x * 0.5 + 0.5) * w;
+  let y = (-p.y * 0.5 + 0.5) * h;
+  const onScreen = facing > 0 && x > 24 && x < w - 24 && y > 24 && y < h - 24;
+  promptEl.hidden = false;
+  promptEl.textContent = interactPrompt(near);
+  promptEl.style.left = (onScreen ? x : w * 0.5) + "px";
+  promptEl.style.top = (onScreen ? y : h * 0.72) + "px";
+}
+
+function applyInteract(it) {
+  if (!it) return false;
+  if (it.kind === "door") {
+    it.open = !it.open;
+    it.target = it.open ? 1.2 : 0;
+    speak("神谕", it.open ? "门开了。" : "门关上了。");
+  } else if (it.kind === "lamp") {
+    it.lit = !it.lit;
+    it.light.intensity = it.lit ? 1.6 : 0;
+    it.bulb.material.emissiveIntensity = it.lit ? 0.7 : 0.02;
+    speak("神谕", it.lit ? "灯亮了。" : "灯灭了。");
+  } else if (it.kind === "tree") {
+    const label = it.object.spec.label;
+    removeObject(it.object);
+    bag.wood += 3;
+    renderBag();
+    speak("神谕", "你砍倒了" + label + "，得到三根木头。");
+  } else if (it.kind === "person") {
+    const o = it.object;
+    o.held = true;
+    const n = o.npcName;
+    const lines = [
+      "你好，我是" + n + "。",
+      "叫我「" + n + " 去砍树」，或点我选命令。",
+      "我可以回家、跟着你，或在房子附近走走。"
+    ];
+    const i = o.talkN || 0;
+    o.talkN = (i + 1) % lines.length;
+    sayNpc(o, lines[i]);
+  }
+  return true;
+}
+
+function useInteract() {
+  return applyInteract(nearestInteract());
+}
+
+function interactFromNode(node) {
+  while (node) {
+    for (let i = 0; i < interactables.length; i++) {
+      const it = interactables[i];
+      if (it.mesh === node && (it.kind === "door" || it.kind === "lamp")) return it;
+    }
+    const found = objects.find((o) => o.mesh === node);
+    if (found && isTree(found)) return { mesh: found.mesh, kind: "tree", object: found };
+    if (found && isPerson(found)) return { mesh: found.mesh, kind: "person", object: found };
+    node = node.parent;
+  }
+  return null;
+}
+
+function interactUnderEvent(ev) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(objects.map((o) => o.mesh), true);
+  return hits.length ? interactFromNode(hits[0].object) : null;
+}
+
+function castleRise(o, x, z, feetY) {
+  const p = worldToLocal(o, x, z);
+  const c = o.castle;
+  if (p.x < -c.hw || p.x > c.hw || p.z < -c.hd || p.z > c.hd) return null;
+  const localY = (feetY == null ? body.y : feetY) - o.mesh.position.y;
+  let best = 0;
+  const stairs = c.stairs || (c.stair ? [c.stair] : []);
+  for (let i = 0; i < stairs.length; i++) {
+    const s = stairs[i];
+    if (p.x < s.minX || p.x > s.maxX || p.z < s.minZ || p.z > s.maxZ) continue;
+    const t = (s.maxZ - p.z) / (s.maxZ - s.minZ);
+    const y = s.base + Math.max(0, Math.min(1, t)) * (s.top - s.base);
+    if (y <= localY + 0.75 && y >= best) best = y;
+  }
+  const floors = c.floors || [];
+  for (let i = 0; i < floors.length; i++) {
+    const f = floors[i];
+    const hole = f.hole;
+    if (hole && p.x >= hole.minX && p.x <= hole.maxX && p.z >= hole.minZ && p.z <= hole.maxZ) continue;
+    if (f.y <= localY + 0.75 && f.y >= best) best = f.y;
+  }
+  return best;
+}
+
+function surfaceY(x, z) {
+  return standY(x, z, body.y);
+}
+
+function updateBody(dt) {
+  const terrain = sampleHeight(view.target.x, view.target.z);
+  const bed = surfaceY(view.target.x, view.target.z);
+  const lake = terrain < WATER - 0.12 && bed < WATER + 0.05;
+  if (view.mode !== "fps" && view.mode !== "third") {
+    body.y = lake ? WATER : bed;
+    body.vy = 0;
+    body.grounded = true;
+    body.wet = false;
+    return;
+  }
+  if (body.grounded && keys.space && body.y <= bed + 0.12) {
+    body.vy = 7.6;
+    body.grounded = false;
+  }
+  const falling = lake || !body.grounded || body.y > bed + 0.08;
+  if (!falling) {
+    body.y = bed;
+    body.vy = 0;
+    body.grounded = true;
+    body.wet = false;
+    return;
+  }
+  const prev = body.y;
+  body.vy = Math.max(-32, body.vy - 26 * dt);
+  body.y += body.vy * dt;
+  if (lake && !body.wet && prev >= WATER - 0.05 && body.y < WATER) {
+    makeSplash(view.target.x, view.target.z);
+    body.wet = true;
+  }
+  if (body.y <= bed) {
+    body.y = bed;
+    body.vy = 0;
+    body.grounded = true;
+    if (!lake) body.wet = false;
+  } else {
+    body.grounded = false;
+  }
+}
+
+function objectFromRay() {
+  const hits = raycaster.intersectObjects(objects.map((o) => o.mesh), true);
+  if (!hits.length) return null;
+  let node = hits[0].object;
+  while (node && objects.every((o) => o.mesh !== node)) node = node.parent;
+  if (!node) return null;
+  for (let i = 0; i < objects.length; i++) if (objects[i].mesh === node) return objects[i];
+  return null;
+}
+
+function objectUnderEvent(ev) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  return objectFromRay();
+}
+
+function objectInSight() {
+  const origin = camera.position.clone();
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  raycaster.set(origin, dir);
+  const hit = objectFromRay();
+  if (hit) return hit;
+  let best = null;
+  let bestD = 1.6;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    const dx = o.mesh.position.x - origin.x;
+    const dy = (o.mesh.position.y + o.top * 0.5) - origin.y;
+    const dz = o.mesh.position.z - origin.z;
+    const along = dx * dir.x + dy * dir.y + dz * dir.z;
+    if (along < 0.3 || along > 14) continue;
+    const miss = Math.hypot(dx - dir.x * along, dy - dir.y * along, dz - dir.z * along);
+    const allow = Math.max(bestD, (o.radius || 0.4) + 0.45);
+    if (miss < allow && miss < bestD) {
+      best = o;
+      bestD = miss;
+    }
+  }
+  return best;
+}
+
+function setDeleteMode(on) {
+  deleteMode = on;
+  eraseBtn.classList.toggle("selected", on);
+  renderer.domElement.style.cursor = on ? "crosshair" : "";
+}
+
+function nearestPersonObject(maxDist) {
+  let best = null;
+  let bestD = maxDist;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (!isPerson(o)) continue;
+    const d = Math.hypot(o.mesh.position.x - view.target.x, o.mesh.position.z - view.target.z);
+    if (d < bestD) {
+      best = o;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+function ownerOf(node) {
+  while (node && objects.every((o) => o.mesh !== node)) node = node.parent;
+  return objects.find((o) => o.mesh === node) || null;
+}
+
+function removalTarget() {
+  const origin = camera.position.clone();
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  raycaster.set(origin, dir);
+  const hits = raycaster.intersectObjects(objects.map((o) => o.mesh), true);
+  for (let i = 0; i < hits.length; i++) {
+    const found = ownerOf(hits[i].object);
+    if (isPerson(found)) return found;
+  }
+  const near = nearestPersonObject(5.5);
+  if (near) return near;
+  return objectInSight();
+}
+
+function tryRemove(target) {
+  if (!target) {
+    speak("神谕", "附近没有可以删的东西。靠近人再按 Delete。");
+    return false;
+  }
+  const name = target.npcName || (target.spec && target.spec.label) || "它";
+  const house = target.house;
+  if (target.npcName) usedNames.delete(target.npcName);
+  if (selectedNpc === target) {
+    selectedNpc = null;
+    ordersEl.hidden = true;
+  }
+  removeObject(target);
+  if (house && house.forPerson === target && objects.includes(house)) removeObject(house);
+  speak("神谕", "我把" + name + "从世界上拿掉了。");
+  return true;
+}
+
+function howMany(text) {
+  const m = text.match(/(\d+)/);
+  if (m) return Math.max(1, Math.min(6, parseInt(m[1], 10)));
+  if (/两|俩|二|一对/.test(text)) return 2;
+  if (/三/.test(text)) return 3;
+  if (/四/.test(text)) return 4;
+  if (/五/.test(text)) return 5;
+  if (/很多|许多|一群|一片|一大片/.test(text)) return 6;
+  if (/几|一些/.test(text)) return 4;
+  return 1;
+}
+
+function parse(text) {
+  const lower = text.toLowerCase();
+  const mask = Array(lower.length).fill(false);
+  const keys = [];
+  for (const spec of CATALOG) {
+    for (const word of spec.words) keys.push({ word: word.toLowerCase(), spec });
+  }
+  keys.sort((a, b) => b.word.length - a.word.length);
+  const found = [];
+  for (const key of keys) {
+    let from = 0;
+    while (from < lower.length) {
+      const i = lower.indexOf(key.word, from);
+      if (i < 0) break;
+      const end = i + key.word.length;
+      let covered = false;
+      for (let c = i; c < end; c++) if (mask[c]) covered = true;
+      const latin = /^[a-z]/.test(key.word);
+      const before = i > 0 ? lower[i - 1] : " ";
+      const after = end < lower.length ? lower[end] : " ";
+      const boundary = !latin || (!/[a-z]/.test(before) && !/[a-z]/.test(after));
+      if (!covered && boundary) {
+        for (let c = i; c < end; c++) mask[c] = true;
+        found.push(key.spec);
+        from = end;
+      } else from = i + 1;
+    }
+  }
+  return [...new Map(found.map((s) => [s.id, s])).values()];
+}
+
+function numWord(n) {
+  return ["", "一", "两", "三", "四", "五", "六"][n] || String(n);
+}
+
+function sayNpc(o, line) {
+  o.say = line;
+  o.sayT = 6;
+  speak(o.npcName || "人", line);
+}
+
+function assignTask(o, task, foe) {
+  if (!o || !isPerson(o)) return;
+  o.held = false;
+  o.pause = 0;
+  if (task === "chop") {
+    o.order = "chop";
+    o.life = "out";
+    sayNpc(o, "我去砍树。");
+  } else if (task === "home") {
+    if (!o.house) sayNpc(o, "我还没有自己的房子。");
+    else {
+      o.order = "home";
+      o.life = "gohome";
+      o.lifeT = 0;
+      setDoor(o.house, true);
+      sayNpc(o, "我回家。");
+    }
+  } else if (task === "follow") {
+    o.order = "follow";
+    o.life = "out";
+    sayNpc(o, "我跟着你。");
+  } else if (task === "stay") {
+    o.order = "stay";
+    sayNpc(o, "我停下。");
+  } else if (task === "sit") {
+    o.order = "sit";
+    sayNpc(o, "我坐下。");
+  } else if (task === "wander") {
+    o.order = "wander";
+    o.life = "out";
+    o.lifeT = 6;
+    o.foe = null;
+    chooseWanderGoal(o);
+    sayNpc(o, "我在家附近走走。");
+  } else if (task === "fight") {
+    beginFight(o, foe);
+  } else {
+    sayNpc(o, "我是" + o.npcName + "。可以说「" + o.npcName + " 去砍树」。");
+  }
+}
+
+function beginFight(a, b) {
+  if (!a || !isPerson(a)) return;
+  if (!b || !isPerson(b) || b === a) {
+    sayNpc(a, "我不知道要打谁。");
+    return;
+  }
+  a.foe = b;
+  b.foe = a;
+  a.order = "fight";
+  b.order = "fight";
+  a.life = "out";
+  b.life = "out";
+  a.held = false;
+  b.held = false;
+  a.pause = 0;
+  b.pause = 0;
+  b.phase = a.phase + Math.PI;
+  sayNpc(a, "我和" + b.npcName + "打起来了。");
+  sayNpc(b, "来吧。");
+}
+
+function fightAsked(text) {
+  return /打架|打起来|开战|动手|打一场|对打|去找.+打|找.+打/.test(text);
+}
+
+function namedPeople(text, people) {
+  const named = [];
+  for (let i = 0; i < people.length; i++) {
+    const person = people[i];
+    if (!person.npcName) continue;
+    const at = text.indexOf(person.npcName);
+    if (at >= 0) named.push({ person, at });
+  }
+  named.sort((a, b) => a.at - b.at);
+  return named;
+}
+
+function handleNpcTalk(text) {
+  const people = objects.filter(isPerson);
+  const named = namedPeople(text, people);
+  let who = named.length ? named[0].person : null;
+  const command = /砍树|砍木|回家|进屋|跟着|过来|跟随|停下|别动|站住|坐下|起来|散步|散开|自己走|训练|你好|您好|你是谁|叫什么/.test(text) || fightAsked(text);
+  if (!who && command) who = nearestPersonObject(8);
+  if (!who) return false;
+  if (!command && text.length > 16 && !text.includes(who.npcName)) return false;
+  if (/训练/.test(text)) {
+    const trick = text.replace(who.npcName, "").replace(/训练/g, "").trim() || "握手";
+    oTrick(who, trick);
+    return true;
+  }
+  if (/砍树|砍木/.test(text)) assignTask(who, "chop");
+  else if (fightAsked(text)) {
+    let foe = named.length > 1 ? named[1].person : null;
+    if (foe === who) foe = named.length > 2 ? named[2].person : null;
+    if (!foe) {
+      let best = 1e9;
+      for (let i = 0; i < people.length; i++) {
+        const p = people[i];
+        if (p === who) continue;
+        const d = Math.hypot(p.mesh.position.x - who.mesh.position.x, p.mesh.position.z - who.mesh.position.z);
+        if (d < best) {
+          best = d;
+          foe = p;
+        }
+      }
+    }
+    assignTask(who, "fight", foe);
+  }
+  else if (/回家|进屋/.test(text)) assignTask(who, "home");
+  else if (/过来|跟着|跟随/.test(text)) assignTask(who, "follow");
+  else if (/停下|别动|站住/.test(text)) assignTask(who, "stay");
+  else if (/坐下/.test(text)) assignTask(who, "sit");
+  else if (/起来|散步|散开|自己走/.test(text)) assignTask(who, "wander");
+  else if (/你是谁|叫什么/.test(text)) sayNpc(who, "我叫" + who.npcName + "。");
+  else if (/你好|您好/.test(text)) sayNpc(who, "你好，我是" + who.npcName + "。");
+  else sayNpc(who, "我听到了。试着说「" + who.npcName + " 去砍树」或「" + who.npcName + " 回家」。");
+  return true;
+}
+
+function oTrick(who, trick) {
+  who.tricks[trick] = true;
+  who.wave = 1.4;
+  who.order = "stay";
+  sayNpc(who, "我学会了「" + trick + "」。");
+}
+
+function mentionsPronoun(text) {
+  return /它|这个|这件|\bit\b|\bthis\b/.test(text.toLowerCase());
+}
+
+function lookedAtSpec() {
+  const hit = objectInSight();
+  return hit && hit.spec ? hit.spec : null;
+}
+
+function resolvePronoun(text) {
+  const lower = text.toLowerCase();
+  const wantsThis = /这个|这件|\bthis\b/.test(lower);
+  const wantsIt = /它|\bit\b/.test(lower);
+  const seen = lookedAtSpec();
+  if (wantsThis && !wantsIt) return seen || lastMentioned;
+  if (wantsIt && !wantsThis) return lastMentioned || seen;
+  return seen || lastMentioned;
+}
+
+function createFromText(text) {
+  if (tryCraftCommand(text)) return;
+  if (handleNpcTalk(text)) return;
+  if (!GENERATION_ON) {
+    noteGenerationOff();
+    return;
+  }
+  let matched = parse(text);
+  if (!matched.length && mentionsPronoun(text)) {
+    const resolved = resolvePronoun(text);
+    if (!resolved) {
+      speak("神谕", "我不知道「它」是哪一件。先说出名字，或看着那样东西再说。我不会把快捷栏里的东西扔下去。");
+      return;
+    }
+    matched = [resolved];
+  }
+  if (!matched.length) {
+    if (/帮助|怎么|可以造|help/.test(text)) {
+      speak("神谕", "可以说城堡、房子、树、松树、花、草、山、河、湖、云、路、桥、塔、狗、猫、马、鸟、鱼、人、椅子、桌子、灯、汽车、船。走近树按 E 砍木头，按 C 制作木板、木棍、木箱或火把。走近门按 E 开门。");
+      return;
+    }
+    if (/放|造|建|种|生成|放置/.test(text)) {
+      speak("神谕", "我没认出要放的是什么。请直接说出名字，比如石头、木头或房子。");
+      return;
+    }
+    speak("神谕", "我还不会造这个。试着说「造一座房子」「种一棵树」「来一条河」或「一个人」。也可以说「帮助」。");
+    return;
+  }
+  const focus = lookPoint() || view.target;
+  const said = [];
+  const count = howMany(text);
+  for (const spec of matched) {
+    const n = spec.terrain ? Math.min(spec.id === "mountain" ? 3 : 1, count) : Math.min(6, count);
+    for (let i = 0; i < n; i++) {
+      const ang = i * 1.7;
+      const dist = n === 1 ? 0 : 3 + i * 1.4;
+      const x = focus.x + Math.cos(ang) * dist;
+      const z = focus.z + Math.sin(ang) * dist;
+      if (spec.terrain) addTerrainFeature(spec, x, z);
+      else spawn(spec, x, z, { yaw: view.yaw, feet: focus.y });
+    }
+    said.push(numWord(n) + spec.unit + spec.label);
+    lastMentioned = spec;
+  }
+  speak("神谕", "我放下了" + said.join("、") + "。它们会落在地上，不会叠在一起。");
+}
+
+function placeSelected(point) {
+  if (!GENERATION_ON) return;
+  const held = byId[HOTBAR[selected].id];
+  if (!held) return;
+  if (held.terrain) addTerrainFeature(held, point.x, point.z);
+  else spawn(held, point.x, point.z, { feet: point.y });
+}
+
+function dropHeld() {
+  if (!GENERATION_ON) {
+    noteGenerationOff();
+    return;
+  }
+  const held = byId[HOTBAR[selected].id];
+  if (!held) return;
+  const reach = 3.2;
+  const x = view.target.x - Math.sin(view.yaw) * reach;
+  const z = view.target.z - Math.cos(view.yaw) * reach;
+  if (held.terrain) addTerrainFeature(held, x, z);
+  else spawn(held, x, z, { yaw: view.yaw, feet: body.y });
+}
+
+function findShore(cx, cz) {
+  for (let r = 10; r < 46; r += 2) {
+    for (let a = 0; a < 6.28; a += 0.45) {
+      const x = cx + Math.cos(a) * r;
+      const z = cz + Math.sin(a) * r;
+      const h = sampleHeight(x, z);
+      if (h > WATER + 0.9 && h < WATER + 3.2) return { x, z };
+    }
+  }
+  return { x: cx + 24, z: cz };
+}
+
+function seedWorld() {
+  const trees = [[-42, -12], [-70, 22], [-28, -52], [52, -40], [78, 24], [-86, -18], [34, 62], [-16, 54], [120, -30], [-6, -70], [64, -86], [-72, -64], [24, -48], [-110, 30], [96, 36], [140, -70]];
+  trees.forEach((p, i) => {
+    if (sampleHeight(p[0], p[1]) > WATER + 1.4) spawn(byId[i % 4 === 0 ? "pine" : "tree"], p[0], p[1], { settle: true });
+  });
+  const shore = findShore(8, 16);
+  spawn(byId.house, shore.x, shore.z, { settle: true, yaw: 0.6 });
+  const castleX = shore.x + 36;
+  const castleZ = shore.z - 30;
+  const castleGround = sampleHeight(castleX, castleZ);
+  const castleAt = castleGround > WATER + 1.2 ? { x: castleX, z: castleZ } : { x: shore.x - 46, z: shore.z + 8 };
+  spawn(byId.castle, castleAt.x, castleAt.z, { settle: true, yaw: 0.4 });
+  spawn(byId.dog, shore.x + 3.4, shore.z + 1.2, { settle: true });
+  for (let i = 0; i < 6; i++) spawn(byId.flower, shore.x - 2 + (i % 3), shore.z + 2 + Math.floor(i / 3), { settle: true });
+  spawn(byId.grass, shore.x + 2, shore.z - 2, { settle: true });
+  if (sampleHeight(48, -28) > WATER + 2) spawn(byId.deer, 48, -28, { settle: true });
+  if (sampleHeight(-20, 40) > WATER + 1) spawn(byId.rabbit, -20, 40, { settle: true });
+  spawn(byId.bird, 12, 0, { settle: true });
+  spawn(byId.bird, -6, 22, { settle: true });
+  spawn(byId.boat, 8, 16, { settle: true });
+  spawn(byId.fish, 12, 20, { settle: true });
+  for (let i = 0; i < 5; i++) spawn(byId.cloud, -90 + i * 48, -30 + (i % 2) * 36, { settle: true });
+  view.target.set(shore.x + 8, 0, shore.z + 6);
+  view.yaw = -0.65;
+  view.pitch = 0.46;
+  view.dist = 26;
+}
+
+function resize() {
+  const w = stage.clientWidth || 1;
+  const h = stage.clientHeight || 1;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function updateCamera() {
+  const x = view.target.x;
+  const z = view.target.z;
+  const onFoot = view.mode === "fps" || view.mode === "third";
+  const ground = onFoot ? body.y : walkY(x, z);
+  if (view.mode === "third") {
+    view.pitch = Math.max(0.12, Math.min(1.05, view.pitch));
+    view.dist = Math.max(3.2, Math.min(12, view.dist));
+    const face = view.front ? -1 : 1;
+    const cp = Math.cos(view.pitch);
+    camera.position.set(
+      x + Math.sin(view.yaw) * cp * view.dist * face,
+      body.y + 1.35 + Math.sin(view.pitch) * view.dist * 0.85,
+      z + Math.cos(view.yaw) * cp * view.dist * face
+    );
+    const lift = sampleHeight(camera.position.x, camera.position.z) + 0.45;
+    if (camera.position.y < lift) camera.position.y = lift;
+    camera.lookAt(x, body.y + 1.2, z);
+    camera.fov = 50;
+  } else if (view.mode === "fps") {
+    view.pitch = Math.max(-1.15, Math.min(1.15, view.pitch));
+    let eye = ground + 1.65;
+    const bed = sampleHeight(x, z);
+    if (bed < WATER - 0.12 && ground < WATER - 0.02) eye = Math.min(eye, WATER - 0.45);
+    camera.position.set(x, eye, z);
+    const cp = Math.cos(view.pitch);
+    camera.lookAt(x - Math.sin(view.yaw) * cp, eye + Math.sin(view.pitch), z - Math.cos(view.yaw) * cp);
+    camera.fov = view.fov;
+  } else {
+    view.pitch = Math.max(0.2, Math.min(1.12, view.pitch));
+    const cp = Math.cos(view.pitch);
+    camera.position.set(
+      x + Math.sin(view.yaw) * cp * view.dist,
+      ground + 1.4 + Math.sin(view.pitch) * view.dist,
+      z + Math.cos(view.yaw) * cp * view.dist
+    );
+    const lift = walkY(camera.position.x, camera.position.z) + 1.4;
+    if (camera.position.y < lift) camera.position.y = lift;
+    camera.lookAt(x, ground + 1.5, z);
+    camera.fov = 52;
+  }
+  camera.updateProjectionMatrix();
+  const under = view.mode === "fps" && camera.position.y < WATER - 0.15;
+  scene.background.copy(under ? underFog : skyState.fog);
+  scene.fog.color.copy(under ? underFog : skyState.fog);
+  scene.fog.near = under ? 0.6 : 90;
+  scene.fog.far = under ? 18 : 430;
+}
+
+const PLAYER_R = 0.22;
+
+function worldToLocal(o, x, z) {
+  const dx = x - o.mesh.position.x;
+  const dz = z - o.mesh.position.z;
+  const c = Math.cos(o.mesh.rotation.y);
+  const s = Math.sin(o.mesh.rotation.y);
+  return { x: dx * c - dz * s, z: dx * s + dz * c };
+}
+
+function localToWorld(o, x, z) {
+  const c = Math.cos(o.mesh.rotation.y);
+  const s = Math.sin(o.mesh.rotation.y);
+  return {
+    x: o.mesh.position.x + x * c + z * s,
+    z: o.mesh.position.z + -x * s + z * c
+  };
+}
+
+function overlapBox(px, pz, box, rad) {
+  const cx = Math.max(box.minX, Math.min(px, box.maxX));
+  const cz = Math.max(box.minZ, Math.min(pz, box.maxZ));
+  const dx = px - cx;
+  const dz = pz - cz;
+  return dx * dx + dz * dz < rad * rad;
+}
+
+function distToSeg(px, pz, ax, az, bx, bz) {
+  const abx = bx - ax;
+  const abz = bz - az;
+  const len2 = abx * abx + abz * abz || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * abx + (pz - az) * abz) / len2));
+  return Math.hypot(px - (ax + abx * t), pz - (az + abz * t));
+}
+
+function castleHit(o, x, z) {
+  const p = worldToLocal(o, x, z);
+  const blocks = o.castle.blocks;
+  for (let i = 0; i < blocks.length; i++) if (overlapBox(p.x, p.z, blocks[i], PLAYER_R)) return true;
+  return false;
+}
+
+function shellHit(o, x, z) {
+  const s = o.shell;
+  const p = worldToLocal(o, x, z);
+  const hw = s.w / 2;
+  const hd = s.d / 2;
+  const t = s.t;
+  const boxes = [
+    { minX: -hw, maxX: -hw + t, minZ: -hd, maxZ: hd },
+    { minX: hw - t, maxX: hw, minZ: -hd, maxZ: hd },
+    { minX: -hw, maxX: hw, minZ: -hd, maxZ: -hd + t }
+  ];
+  if (s.doorX > -hw + 0.02) boxes.push({ minX: -hw, maxX: s.doorX, minZ: hd - t, maxZ: hd });
+  const gapR = s.doorX + s.doorW;
+  if (gapR < hw - 0.02) boxes.push({ minX: gapR, maxX: hw, minZ: hd - t, maxZ: hd });
+  for (let i = 0; i < boxes.length; i++) if (overlapBox(p.x, p.z, boxes[i], PLAYER_R)) return true;
+  const ang = s.door ? s.door.angle : 0;
+  const ax = s.doorX;
+  const az = hd;
+  const bx = ax + Math.cos(ang) * s.doorW;
+  const bz = az - Math.sin(ang) * s.doorW;
+  return distToSeg(p.x, p.z, ax, az, bx, bz) < PLAYER_R + 0.07;
+}
+
+function overlapSolid(x, z, ignore) {
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (o === ignore || !o.solid || !o.resting) continue;
+    if (o.castle) {
+      if (castleHit(o, x, z)) return o;
+      continue;
+    }
+    if (o.shell) {
+      if (shellHit(o, x, z)) return o;
+      continue;
+    }
+    if (o.behavior === "wander") continue;
+    if ((view.mode === "fps" || view.mode === "third") && body.y > o.mesh.position.y + (o.top || 0.4) + 0.05) continue;
+    const dx = o.mesh.position.x - x;
+    const dz = o.mesh.position.z - z;
+    const need = Math.min(o.radius * 0.4 + 0.22, 0.95);
+    if (dx * dx + dz * dz < need * need) return o;
+  }
+  return null;
+}
+
+function nudgeOut() {
+  const hit = overlapSolid(view.target.x, view.target.z);
+  if (!hit || hit.shell) return;
+  let dx = view.target.x - hit.mesh.position.x;
+  let dz = view.target.z - hit.mesh.position.z;
+  if (Math.hypot(dx, dz) < 0.05) {
+    dx = -Math.sin(view.yaw);
+    dz = -Math.cos(view.yaw);
+  }
+  const len = Math.hypot(dx, dz) || 1;
+  const need = Math.min(hit.radius * 0.4 + 0.28, 1);
+  const nx = hit.mesh.position.x + (dx / len) * need;
+  const nz = hit.mesh.position.z + (dz / len) * need;
+  if (!overlapSolid(nx, nz)) {
+    view.target.x = nx;
+    view.target.z = nz;
+  }
+}
+
+function shove(blocker, dirx, dirz) {
+  if (!blocker || blocker.shell || blocker.behavior === "wander" || !blocker.spec) return false;
+  if (blocker.radius > 0.75) return false;
+  const id = blocker.spec.id;
+  if (id === "tree" || id === "pine" || id === "house" || id === "cabin" || id === "tower" || id === "car" || id === "truck") return false;
+  const px = blocker.mesh.position.x + dirx * 0.6;
+  const pz = blocker.mesh.position.z + dirz * 0.6;
+  if (overlapSolid(px, pz, blocker)) return false;
+  blocker.mesh.position.x = px;
+  blocker.mesh.position.z = pz;
+  const bed = sampleHeight(px, pz);
+  blocker.mesh.position.y = blocker.floats ? Math.max(bed, WATER) : bed;
+  blocker.resting = true;
+  return true;
+}
+
+function tryStep(nx, nz, dirx, dirz) {
+  const hit = overlapSolid(nx, nz);
+  if (!hit) {
+    view.target.x = nx;
+    view.target.z = nz;
+    return true;
+  }
+  if (shove(hit, dirx, dirz) && !overlapSolid(nx, nz)) {
+    view.target.x = nx;
+    view.target.z = nz;
+    return true;
+  }
+  return false;
+}
+
+function moveFocus(dt) {
+  if (typingInChat()) return;
+  let mx = 0;
+  let mz = 0;
+  const fx = -Math.sin(view.yaw);
+  const fz = -Math.cos(view.yaw);
+  const rx = Math.cos(view.yaw);
+  const rz = -Math.sin(view.yaw);
+  if (keys.w || keys.arrowup) { mx += fx; mz += fz; }
+  if (keys.s || keys.arrowdown) { mx -= fx; mz -= fz; }
+  if (keys.a || keys.arrowleft) { mx -= rx; mz -= rz; }
+  if (keys.d || keys.arrowright) { mx += rx; mz += rz; }
+  const len = Math.hypot(mx, mz);
+  if (!len) {
+    if (overlapSolid(view.target.x, view.target.z)) nudgeOut();
+    return;
+  }
+  const speed = (keys.shift ? 42 : 22) * dt;
+  mx = (mx / len) * speed;
+  mz = (mz / len) * speed;
+  const nx = Math.max(-WORLD, Math.min(WORLD, view.target.x + mx));
+  const nz = Math.max(-WORLD, Math.min(WORLD, view.target.z + mz));
+  const dirx = mx / len;
+  const dirz = mz / len;
+  if (tryStep(nx, nz, dirx, dirz)) return;
+  if (tryStep(nx, view.target.z, dirx, 0)) return;
+  if (tryStep(view.target.x, nz, 0, dirz)) return;
+  nudgeOut();
+}
+
+function wanderGround(x, z) {
+  const h = sampleHeight(x, z);
+  return h < WATER + 0.3 ? null : h;
+}
+
+function wanderBlocked(o, x, z) {
+  return !!overlapSolid(x, z, o);
+}
+
+function nearestLand(x, z) {
+  for (let r = 2; r <= 48; r += 3) {
+    for (let a = 0; a < 6.28; a += 0.65) {
+      const gx = x + Math.cos(a) * r;
+      const gz = z + Math.sin(a) * r;
+      if (wanderGround(gx, gz) != null) return { x: gx, z: gz };
+    }
+  }
+  return null;
+}
+
+function personTooClose(self, x, z) {
+  for (let i = 0; i < objects.length; i++) {
+    const other = objects[i];
+    if (other === self || !isPerson(other)) continue;
+    if (Math.hypot(other.mesh.position.x - x, other.mesh.position.z - z) < 16) return true;
+  }
+  return false;
+}
+
+function chooseWanderGoal(o) {
+  const person = isPerson(o);
+  const tries = person ? 28 : 10;
+  const anchor = person && o.house ? o.house.mesh.position : o.mesh.position;
+  const ox = person ? anchor.x : o.homeX;
+  const oz = person ? anchor.z : o.homeZ;
+  for (let n = 0; n < tries; n++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = person ? 5 + Math.random() * 11 : 2 + Math.random() * 7;
+    const gx = ox + Math.cos(ang) * rad;
+    const gz = oz + Math.sin(ang) * rad;
+    if (Math.abs(gx) > WORLD - 10 || Math.abs(gz) > WORLD - 10) continue;
+    if (wanderGround(gx, gz) == null || wanderBlocked(o, gx, gz)) continue;
+    if (person && personTooClose(o, gx, gz)) continue;
+    o.goalX = gx;
+    o.goalZ = gz;
+    return;
+  }
+  o.goalX = ox;
+  o.goalZ = oz;
+}
+
+function turnToward(mesh, yaw, dt) {
+  let d = yaw - mesh.rotation.y;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  const max = dt * 3.4;
+  if (d > max) d = max;
+  if (d < -max) d = -max;
+  mesh.rotation.y += d;
+}
+
+function facePlayer(o, dt) {
+  const dx = view.target.x - o.mesh.position.x;
+  const dz = view.target.z - o.mesh.position.z;
+  if (Math.hypot(dx, dz) > 0.2) turnToward(o.mesh, Math.atan2(dx, dz), dt);
+}
+
+function poseWalker(o, moving) {
+  const swing = moving ? Math.sin(o.phase) * (o.spec && o.spec.id === "dog" ? 0.65 : 0.48) : Math.sin(o.phase * 0.35) * 0.04;
+  o.mesh.traverse((node) => {
+    const part = node.userData && node.userData.part;
+    if (part === "leg" || part === "arm") {
+      const sign = node.userData.side > 0 ? 1 : -1;
+      node.rotation.x = swing * (part === "arm" ? -sign : sign);
+      if (part === "arm") node.rotation.z = sign * -0.08;
+      if (part === "arm" && o.wave > 0 && node.userData.side > 0) node.rotation.x = -1.35;
+    } else if (part === "tail") {
+      node.rotation.y = Math.sin(o.phase * 1.6) * 0.5;
+    }
+  });
+}
+
+function poseFight(o) {
+  const swing = Math.sin(o.phase);
+  o.mesh.traverse((node) => {
+    const part = node.userData && node.userData.part;
+    if (part === "arm") {
+      const sign = node.userData.side > 0 ? 1 : -1;
+      node.rotation.x = -0.55 + swing * 1.15 * sign;
+      node.rotation.z = sign * (-0.2 - Math.max(0, swing) * 0.45);
+    } else if (part === "leg") {
+      const sign = node.userData.side > 0 ? 1 : -1;
+      node.rotation.x = Math.sin(o.phase * 0.5) * 0.28 * sign;
+    }
+  });
+}
+
+function updateWander(o, dt) {
+  if (o.wave > 0) o.wave = Math.max(0, o.wave - dt);
+  if (o.sayT > 0) o.sayT = Math.max(0, o.sayT - dt);
+  const floor = wanderGround(o.mesh.position.x, o.mesh.position.z);
+  let stand = standY(o.mesh.position.x, o.mesh.position.z, o.mesh.position.y);
+  const person = isPerson(o);
+  const pdx = view.target.x - o.mesh.position.x;
+  const pdz = view.target.z - o.mesh.position.z;
+  const pd = Math.hypot(pdx, pdz);
+  if (person) {
+    if (pd < 4.8) o.held = true;
+    else if (pd > 6.4) o.held = false;
+    if (floor == null) {
+      const land = nearestLand(o.mesh.position.x, o.mesh.position.z);
+      if (land) {
+        o.goalX = land.x;
+        o.goalZ = land.z;
+        o.order = o.order === "stay" || o.order === "sit" ? "wander" : o.order;
+        o.held = false;
+      }
+    }
+  }
+  const sit = person && o.order === "sit";
+  if (sit) stand -= 0.42;
+  const linger = person && o.held && o.order !== "follow" && o.order !== "fight";
+  const followClose = person && o.order === "follow" && pd < 3.3;
+  if (linger || followClose || (person && (o.order === "stay" || o.order === "sit"))) {
+    o.mesh.position.y = stand;
+    o.phase += dt * 1.3;
+    if (pd < 18) facePlayer(o, dt);
+    poseWalker(o, false);
+    return;
+  }
+  if (person && o.order === "follow") {
+    o.goalX = view.target.x + Math.cos(o.phase) * 2.2;
+    o.goalZ = view.target.z + Math.sin(o.phase) * 2.2;
+    o.pause = 0;
+  }
+  if (person && o.order === "fight") {
+    const foe = o.foe;
+    const gone = !foe || !isPerson(foe) || !foe.mesh || !foe.mesh.parent || foe.order !== "fight";
+    if (gone) {
+      o.foe = null;
+      o.order = "wander";
+      chooseWanderGoal(o);
+    } else {
+      const fdx = foe.mesh.position.x - o.mesh.position.x;
+      const fdz = foe.mesh.position.z - o.mesh.position.z;
+      const fd = Math.hypot(fdx, fdz) || 0.001;
+      if (fd > 1.35) {
+        o.goalX = foe.mesh.position.x;
+        o.goalZ = foe.mesh.position.z;
+        o.pause = 0;
+        o.life = "out";
+      } else {
+        turnToward(o.mesh, Math.atan2(fdx, fdz), dt);
+        o.phase += dt * 8;
+        o.mesh.position.y = stand;
+        if (fd < 0.9) {
+          o.mesh.position.x -= (fdx / fd) * dt * 0.7;
+          o.mesh.position.z -= (fdz / fd) * dt * 0.7;
+        } else if (Math.sin(o.phase) > 0.9) {
+          foe.mesh.position.x += (fdx / fd) * 0.06;
+          foe.mesh.position.z += (fdz / fd) * 0.06;
+        }
+        poseFight(o);
+        return;
+      }
+    }
+  }
+  if (person && o.order === "chop" && !o.held) {
+    let tree = null;
+    let best = 1e9;
+    for (let i = 0; i < objects.length; i++) {
+      if (!isTree(objects[i])) continue;
+      const d = Math.hypot(objects[i].mesh.position.x - o.mesh.position.x, objects[i].mesh.position.z - o.mesh.position.z);
+      if (d < best) {
+        best = d;
+        tree = objects[i];
+      }
+    }
+    if (!tree) {
+      sayNpc(o, "附近没有树。");
+      o.order = "wander";
+    } else if (best < 1.8) {
+      removeObject(tree);
+      bag.wood += 3;
+      renderBag();
+      o.wave = 1.2;
+      o.order = "wander";
+      sayNpc(o, "树砍好了，木头在你背包里。");
+    } else {
+      o.goalX = tree.mesh.position.x;
+      o.goalZ = tree.mesh.position.z;
+      o.pause = 0;
+      o.life = "out";
+    }
+  }
+  if (person && o.house && o.house.mesh.parent && !o.held && o.order !== "follow" && o.order !== "chop" && o.order !== "stay" && o.order !== "sit" && o.order !== "fight") {
+    if (o.order === "home") o.life = "gohome";
+    if (o.life === "out") {
+      o.lifeT -= dt;
+      if (o.lifeT <= 0) {
+        o.life = "gohome";
+        setDoor(o.house, true);
+      }
+    }
+    if (o.life === "gohome") {
+      setDoor(o.house, true);
+      const pts = homePoints(o);
+      const dOut = Math.hypot(o.mesh.position.x - pts.outside.x, o.mesh.position.z - pts.outside.z);
+      const dIn = Math.hypot(o.mesh.position.x - pts.inside.x, o.mesh.position.z - pts.inside.z);
+      if (dOut > 1.15 && dIn > 1.35) {
+        o.goalX = pts.outside.x;
+        o.goalZ = pts.outside.z;
+      } else {
+        o.goalX = pts.inside.x;
+        o.goalZ = pts.inside.z;
+        if (dIn < 0.8) {
+          o.mesh.position.x = pts.inside.x;
+          o.mesh.position.z = pts.inside.z;
+          o.life = "inside";
+          o.lifeT = 12;
+          o.order = "wander";
+          setDoor(o.house, false);
+        }
+      }
+      o.pause = 0;
+    } else if (o.life === "inside") {
+      o.lifeT -= dt;
+      o.mesh.position.y = stand;
+      o.phase += dt;
+      poseWalker(o, false);
+      if (o.lifeT > 0) return;
+      o.life = "leave";
+      setDoor(o.house, true);
+    } else if (o.life === "leave") {
+      setDoor(o.house, true);
+      const pts = homePoints(o);
+      o.goalX = pts.outside.x;
+      o.goalZ = pts.outside.z;
+      o.pause = 0;
+      if (Math.hypot(o.mesh.position.x - pts.outside.x, o.mesh.position.z - pts.outside.z) < 0.85) {
+        o.life = "out";
+        o.lifeT = 8 + Math.random() * 8;
+        setDoor(o.house, false);
+        chooseWanderGoal(o);
+      }
+    }
+  }
+  if (o.pause > 0) {
+    o.pause -= dt;
+    o.phase += dt * 1.6;
+    o.mesh.position.y = stand;
+    poseWalker(o, false);
+    return;
+  }
+  const px = o.mesh.position.x;
+  const pz = o.mesh.position.z;
+  const dx = o.goalX - px;
+  const dz = o.goalZ - pz;
+  const dist = Math.hypot(dx, dz);
+  if (dist < 0.55) {
+    if (!(person && (o.life === "gohome" || o.life === "leave" || o.order === "chop" || o.order === "home" || o.order === "fight"))) chooseWanderGoal(o);
+    o.pause = person ? 0.2 : 0.45 + Math.random() * 1.1;
+    o.mesh.position.y = stand;
+    poseWalker(o, false);
+    return;
+  }
+  const face = Math.atan2(dx, dz);
+  turnToward(o.mesh, face, dt);
+  let diff = face - o.mesh.rotation.y;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const align = Math.max(0.28, Math.cos(diff));
+  const gait = 0.84 + Math.sin(o.phase * 0.5) * 0.16;
+  const step = Math.min(dist, (o.speed || 1.5) * gait * align * dt);
+  const nx = px + (dx / dist) * step;
+  const nz = pz + (dz / dist) * step;
+  const wetNow = floor == null;
+  const nextDry = wanderGround(nx, nz) != null;
+  const clear = !wanderBlocked(o, nx, nz) && (nextDry || wetNow);
+  if (!clear) {
+    const side = o.stuck % 2 === 0 ? 1 : -1;
+    const sx = px + (-dz / dist) * step * 1.4 * side;
+    const sz = pz + (dx / dist) * step * 1.4 * side;
+    const sideDry = wanderGround(sx, sz) != null;
+    if (!wanderBlocked(o, sx, sz) && (sideDry || wetNow)) {
+      o.mesh.position.x = sx;
+      o.mesh.position.z = sz;
+    }
+    o.stuck += 1;
+    if (o.stuck > 10) {
+      if (!(person && (o.life === "gohome" || o.life === "leave" || o.order === "chop" || o.order === "fight"))) chooseWanderGoal(o);
+      o.stuck = 0;
+      o.pause = 0.25;
+    }
+  } else {
+    o.stuck = 0;
+    o.mesh.position.x = nx;
+    o.mesh.position.z = nz;
+    o.phase += dt * 8;
+  }
+  const gy = standY(o.mesh.position.x, o.mesh.position.z, o.mesh.position.y);
+  const moved = o.mesh.position.x !== px || o.mesh.position.z !== pz;
+  o.mesh.position.y = gy + (moved ? Math.abs(Math.sin(o.phase)) * 0.035 : 0);
+  poseWalker(o, moved);
+}
+
+function updateObjects(dt) {
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (o.behavior === "bob") {
+      o.phase += dt;
+      o.mesh.position.y = o.baseY + Math.sin(o.phase * 2) * 0.45;
+      o.mesh.position.x += Math.cos(o.phase * 0.4) * dt * 1.4;
+    } else if (o.behavior === "sky") {
+      o.mesh.position.x += dt * 1.6;
+      if (o.mesh.position.x > WORLD) o.mesh.position.x = -WORLD;
+    } else if (o.behavior === "wander") {
+      updateWander(o, dt);
+    } else if (o.behavior === "fall" || !o.behavior) {
+      const gy = supportY(o);
+      if (o.resting && o.mesh.position.y > gy + 0.2) {
+        o.resting = false;
+        o.vy = 0;
+      }
+      if (o.resting) continue;
+      const prev = o.mesh.position.y;
+      o.vy -= 28 * dt;
+      o.mesh.position.y += o.vy * dt;
+      const bed = sampleHeight(o.mesh.position.x, o.mesh.position.z);
+      if (!o.splashed && !o.floats && prev >= WATER && o.mesh.position.y < WATER && bed < WATER - 0.15) {
+        makeSplash(o.mesh.position.x, o.mesh.position.z);
+        o.splashed = true;
+      }
+      const landed = supportY(o);
+      if (o.mesh.position.y <= landed) {
+        o.mesh.position.y = landed;
+        o.vy = 0;
+        o.resting = true;
+      }
+    }
+  }
+}
+
+function setMode(mode) {
+  view.mode = mode;
+  fpsBtn.classList.toggle("selected", mode === "fps");
+  thirdBtn.classList.toggle("selected", mode === "third");
+  orbitBtn.classList.toggle("selected", mode === "orbit");
+  if (mode === "fps") {
+    view.pitch = 0;
+    player.visible = false;
+    const lock = renderer.domElement.requestPointerLock();
+    if (lock && lock.catch) lock.catch(() => {});
+  } else if (mode === "third") {
+    if (document.pointerLockElement) document.exitPointerLock();
+    view.dist = 6.5;
+    view.pitch = 0.42;
+    player.visible = true;
+  } else {
+    player.visible = false;
+    if (document.pointerLockElement) document.exitPointerLock();
+    if (view.pitch < 0.2) view.pitch = 0.46;
+  }
+}
+
+let drag = null;
+renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (document.activeElement === sayInput) sayInput.blur();
+  renderer.domElement.focus();
+  if (view.mode === "fps" && document.pointerLockElement !== renderer.domElement) {
+    renderer.domElement.requestPointerLock();
+  }
+  drag = { x: e.clientX, y: e.clientY, button: e.button, moved: 0 };
+  if (!(view.mode === "fps" && document.pointerLockElement === renderer.domElement)) {
+    renderer.domElement.setPointerCapture(e.pointerId);
+  }
+});
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (view.mode === "fps" && document.pointerLockElement === renderer.domElement) {
+    view.yaw -= e.movementX * 0.0022;
+    view.pitch = Math.max(-1.15, Math.min(1.15, view.pitch - e.movementY * 0.002));
+    return;
+  }
+  if (view.mode === "fps" && drag) {
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    drag.moved += Math.abs(dx) + Math.abs(dy);
+    view.yaw -= dx * 0.005;
+    view.pitch = Math.max(-1.15, Math.min(1.15, view.pitch - dy * 0.004));
+    return;
+  }
+  if (!drag) return;
+  const dx = e.clientX - drag.x;
+  const dy = e.clientY - drag.y;
+  drag.x = e.clientX;
+  drag.y = e.clientY;
+  drag.moved += Math.abs(dx) + Math.abs(dy);
+  if (drag.button === 2 || e.shiftKey) {
+    const s = view.dist * 0.0022;
+    const rx = Math.cos(view.yaw);
+    const rz = -Math.sin(view.yaw);
+    const fx = -Math.sin(view.yaw);
+    const fz = -Math.cos(view.yaw);
+    view.target.x += (-rx * dx + fx * dy) * s;
+    view.target.z += (-rz * dx + fz * dy) * s;
+  } else if (drag.button === 0) {
+    view.yaw -= dx * 0.005;
+    view.pitch += dy * 0.0035;
+  }
+});
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (drag && drag.button === 0 && drag.moved < 5 && view.mode !== "fps") {
+    const hit = objectUnderEvent(e);
+    const acted = interactUnderEvent(e);
+    if (deleteMode) tryRemove(isPerson(hit) ? hit : (hit || nearestPersonObject(5.5)));
+    else if (acted && acted.kind === "person") showOrders(acted.object, e.clientX, e.clientY);
+    else if (acted && (acted.kind === "tree" || acted.kind === "door" || acted.kind === "lamp")) applyInteract(acted);
+    else if (GENERATION_ON) {
+      const point = pointFromEvent(e);
+      if (point) placeSelected(point);
+    } else ordersEl.hidden = true;
+  }
+  drag = null;
+});
+renderer.domElement.addEventListener("click", () => {
+  if (view.mode === "fps" && document.pointerLockElement === renderer.domElement) {
+    const origin = camera.position.clone();
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    raycaster.set(origin, dir);
+    const acted = interactFromNode((raycaster.intersectObjects(objects.map((o) => o.mesh), true)[0] || {}).object);
+    if (deleteMode) tryRemove(objectInSight());
+    else if (acted && (acted.kind === "tree" || acted.kind === "door" || acted.kind === "lamp")) applyInteract(acted);
+    else {
+      const point = lookPoint();
+      if (point) placeSelected(point);
+    }
+  }
+});
+renderer.domElement.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  if (view.mode === "fps") view.fov = Math.max(28, Math.min(85, view.fov + e.deltaY * 0.02));
+  else if (view.mode === "third") view.dist = Math.max(3.2, Math.min(12, view.dist + e.deltaY * 0.01));
+  else view.dist = Math.max(7, Math.min(190, view.dist + e.deltaY * 0.04));
+}, { passive: false });
+
+const HOLD = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", ShiftLeft: "shift", ShiftRight: "shift", Space: "space" };
+function typingInChat() {
+  return document.activeElement === sayInput && document.pointerLockElement !== renderer.domElement;
+}
+window.addEventListener("keydown", (e) => {
+  const chatText = document.activeElement === sayInput && sayInput.value.trim();
+  if (e.code === "KeyE" && !chatText) {
+    if (document.activeElement === sayInput) sayInput.blur();
+    useInteract();
+    return;
+  }
+  if (e.code === "KeyV" && !chatText) {
+    e.preventDefault();
+    if (document.activeElement === sayInput) sayInput.blur();
+    setMode(view.mode === "third" ? "fps" : "third");
+    return;
+  }
+  if ((e.code === "Delete" || e.code === "Backspace") && !chatText) {
+    e.preventDefault();
+    if (document.activeElement === sayInput) sayInput.blur();
+    tryRemove(removalTarget());
+    return;
+  }
+  if (typingInChat()) {
+    if (e.code === "Escape") {
+      sayInput.blur();
+      e.preventDefault();
+    }
+    return;
+  }
+  if (e.code === "KeyF") { setMode("fps"); return; }
+  if (e.code === "KeyQ" && view.mode === "third") { view.front = !view.front; return; }
+  if (e.code === "KeyR") { setMode("orbit"); return; }
+  if (e.code === "KeyX") { setDeleteMode(!deleteMode); return; }
+  let digit = 0;
+  if (/^Digit[1-9]$/.test(e.code)) digit = Number(e.code.slice(5));
+  else if (/^Numpad[1-9]$/.test(e.code)) digit = Number(e.code.slice(6));
+  else if (/^[1-9]$/.test(e.key)) digit = Number(e.key);
+  if (digit) {
+    selectSlot(digit - 1);
+    dropHeld();
+    return;
+  }
+  const k = HOLD[e.code];
+  if (!k) return;
+  keys[k] = true;
+  if (e.code.indexOf("Arrow") === 0 || e.code === "Space") e.preventDefault();
+}, true);
+window.addEventListener("keyup", (e) => {
+  const k = HOLD[e.code];
+  if (k) keys[k] = false;
+});
+window.addEventListener("resize", resize);
+fpsBtn.addEventListener("click", () => setMode("fps"));
+thirdBtn.addEventListener("click", () => setMode(view.mode === "third" ? "fps" : "third"));
+orbitBtn.addEventListener("click", () => setMode("orbit"));
+eraseBtn.addEventListener("click", () => setDeleteMode(!deleteMode));
+ordersEl.querySelectorAll("button").forEach((btn) => {
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (selectedNpc && objects.includes(selectedNpc)) assignTask(selectedNpc, btn.dataset.task);
+    ordersEl.hidden = true;
+  });
+});
+document.getElementById("talk").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = sayInput.value.trim();
+  if (!text) return;
+  speak("你", text, "you");
+  sayInput.value = "";
+  createFromText(text);
+});
+
+function showOrders(person, clientX, clientY) {
+  selectedNpc = person;
+  orderNameEl.textContent = person.npcName;
+  const rect = stage.getBoundingClientRect();
+  ordersEl.hidden = false;
+  ordersEl.style.left = Math.max(8, Math.min(clientX - rect.left, (stage.clientWidth || 200) - 160)) + "px";
+  ordersEl.style.top = Math.max(8, Math.min(clientY - rect.top, (stage.clientHeight || 200) - 220)) + "px";
+}
+
+function updateLabels() {
+  labelsEl.replaceChildren();
+  camera.updateMatrixWorld(true);
+  const w = stage.clientWidth || 1;
+  const h = stage.clientHeight || 1;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (!isPerson(o) || !o.npcName) continue;
+    nameV.set(o.mesh.position.x, o.mesh.position.y + 2.15, o.mesh.position.z);
+    const projected = nameV.clone().project(camera);
+    if (projected.z > 1) continue;
+    const x = (projected.x * 0.5 + 0.5) * w;
+    const y = (-projected.y * 0.5 + 0.5) * h;
+    if (x < -80 || x > w + 80 || y < -40 || y > h + 40) continue;
+    const tag = document.createElement("div");
+    tag.className = "npc-tag";
+    tag.textContent = o.npcName;
+    tag.style.left = x + "px";
+    tag.style.top = y + "px";
+    labelsEl.appendChild(tag);
+    if (o.sayT > 0 && o.say) {
+      const say = document.createElement("div");
+      say.className = "npc-say";
+      say.textContent = o.say;
+      say.style.left = x + "px";
+      say.style.top = (y - 28) + "px";
+      labelsEl.appendChild(say);
+    }
+  }
+}
+
+const player = new THREE.Group();
+let playerPhase = 0;
+function buildPlayer() {
+  buildHuman(player, { s: 1.02, head: 1, broad: true, long: false });
+  player.visible = false;
+  scene.add(player);
+}
+function updatePlayer(dt) {
+  player.visible = view.mode === "third";
+  if (!player.visible) return;
+  player.position.set(view.target.x, body.y, view.target.z);
+  player.rotation.y = view.yaw + Math.PI;
+  const moving = !!(keys.w || keys.a || keys.s || keys.d || keys.arrowup || keys.arrowdown || keys.arrowleft || keys.arrowright);
+  if (moving) playerPhase += dt * 8;
+  poseWalker({ mesh: player, phase: playerPhase, spec: { id: "person" }, wave: 0 }, moving && body.grounded);
+}
+
+buildTerrain();
+makeSky();
+buildPlayer();
+seedWorld();
+seeding = false;
+resize();
+sayInput.blur();
+renderer.domElement.tabIndex = 0;
+renderer.domElement.focus();
+document.addEventListener("pointerdown", (e) => {
+  if (e.target === sayInput) return;
+  if (document.activeElement === sayInput) sayInput.blur();
+});
+speak("神谕", "可以说「造一座房子」，也可以看着一件东西说「生成它」。点一个人，或输入他的名字来下命令。靠近人按 Delete 可以请他离开。按 V 能看见自己。");
+window.__godsReady = true;
+window.__godsProbe = {
+  bag: () => ({ wood: bag.wood, plank: bag.plank, stick: bag.stick }),
+  body: () => ({ y: body.y, wet: body.wet, mode: view.mode, x: view.target.x, z: view.target.z }),
+  setMode,
+  setTarget: (x, z) => view.target.set(x, 0, z),
+  sample: (x, z) => sampleHeight(x, z),
+  water: WATER,
+  spawn: (id, x, z, y) => spawn(byId[id], x, z, { settle: true, yaw: 0, feet: y }),
+  generation: () => GENERATION_ON,
+  dayNight: (elapsed) => {
+    if (elapsed != null) updateDayNight(elapsed);
+    return { night: skyState.night, sun: sun.intensity, fog: skyState.fog.getHexString() };
+  },
+  treeGaps: () => objects.filter((o) => isTree(o)).map((o) => {
+    o.mesh.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(o.mesh);
+    const bed = sampleHeight(o.mesh.position.x, o.mesh.position.z);
+    raycaster.set(new THREE.Vector3(o.mesh.position.x, bed + 80, o.mesh.position.z), new THREE.Vector3(0, -1, 0));
+    const hit = raycaster.intersectObject(terrain, false)[0];
+    const ground = hit ? hit.point.y : bed;
+    return {
+      id: o.spec.id,
+      y: Math.round(o.mesh.position.y * 100) / 100,
+      minY: Math.round(box.min.y * 100) / 100,
+      ground: Math.round(ground * 100) / 100,
+      gap: Math.round((box.min.y - ground) * 100) / 100
+    };
+  }),
+  people: () => objects.filter(isPerson).map((o) => ({
+    name: o.npcName, order: o.order, life: o.life, house: !!o.house,
+    foe: o.foe ? o.foe.npcName : null,
+    x: Math.round(o.mesh.position.x * 10) / 10,
+    y: Math.round(o.mesh.position.y * 10) / 10,
+    z: Math.round(o.mesh.position.z * 10) / 10
+  })),
+  player: () => ({ visible: player.visible, kids: player.children.length, mode: view.mode }),
+  removeNear: () => tryRemove(removalTarget()),
+  count: (id) => objects.filter((o) => o.spec && o.spec.id === id).length,
+  at: (id) => objects.filter((o) => o.spec && o.spec.id === id).map((o) => ({
+    x: Math.round(o.mesh.position.x * 10) / 10,
+    y: Math.round(o.mesh.position.y * 10) / 10,
+    z: Math.round(o.mesh.position.z * 10) / 10
+  })),
+  balconyLamps: () => {
+    const out = [];
+    objects.forEach((o) => {
+      if (!o.spec || o.spec.id !== "castle") return;
+      o.mesh.updateWorldMatrix(true, true);
+      o.mesh.traverse((n) => {
+        if (!n.userData || n.userData.role !== "balcony-lamp") return;
+        const p = new THREE.Vector3();
+        n.getWorldPosition(p);
+        let light = 0;
+        n.traverse((c) => {
+          if (c.isPointLight) light = c.intensity;
+        });
+        out.push({
+          x: Math.round(p.x * 10) / 10,
+          y: Math.round(p.y * 10) / 10,
+          z: Math.round(p.z * 10) / 10,
+          light
+        });
+      });
+    });
+    return out;
+  },
+  use: () => useInteract(),
+  craft: (id) => craft(id),
+  near: () => {
+    const n = nearestInteract();
+    return n ? n.kind : null;
+  },
+  prompt: () => (promptEl.hidden ? "" : promptEl.textContent),
+  drop: () => dropHeld(),
+  movers: () => objects.filter((o) => o.behavior === "wander").map((o) => ({
+    id: o.spec.id, x: o.mesh.position.x, y: o.mesh.position.y, z: o.mesh.position.z
+  })),
+  yaw: () => view.yaw,
+  rockAt: (x, z) => {
+    const rocks = objects.filter((o) => o.spec && o.spec.id === "rock");
+    let best = null;
+    let bestD = 1e9;
+    for (let i = 0; i < rocks.length; i++) {
+      const d = Math.hypot(rocks[i].mesh.position.x - x, rocks[i].mesh.position.z - z);
+      if (d < bestD) { best = rocks[i]; bestD = d; }
+    }
+    return best ? { y: best.mesh.position.y, resting: best.resting, splashed: best.splashed } : null;
+  },
+  keys,
+  roofs: () => objects.filter((o) => o.spec && (o.spec.id === "house" || o.spec.id === "cabin")).map((o) => {
+    const info = [];
+    o.mesh.updateWorldMatrix(true, true);
+    o.mesh.traverse((n) => {
+      if (!n.userData || !n.userData.role) return;
+      const box = new THREE.Box3().setFromObject(n);
+      info.push({
+        role: n.userData.role,
+        rx: n.rotation.x, ry: n.rotation.y, rz: n.rotation.z,
+        minY: box.min.y, maxY: box.max.y
+      });
+    });
+    return info;
+  })
+};
+
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, clock.getDelta());
+  moveFocus(dt);
+  updateBody(dt);
+  let growing = false;
+  for (let i = 0; i < mods.length; i++) {
+    if (mods[i].grow < 1) {
+      mods[i].grow = Math.min(1, mods[i].grow + dt * 0.55);
+      growing = true;
+    }
+  }
+  if (growing) terrainDirty = true;
+  if (terrainDirty) {
+    rebuildTerrain();
+    terrainDirty = false;
+    for (let i = 0; i < objects.length; i++) {
+      const o = objects[i];
+      if (!o.resting || o.behavior === "sky" || o.behavior === "bob" || o.behavior === "float" || o.behavior === "static") continue;
+      const y = supportY(o);
+      if (o.mesh.position.y > y + 0.35) o.resting = false;
+      else if (y > o.mesh.position.y) o.mesh.position.y = y;
+    }
+  }
+  updateObjects(dt);
+  updateSplashes(dt);
+  water.position.y = WATER + Math.sin(clock.elapsedTime * 0.8) * 0.04;
+  updateDayNight(clock.elapsedTime);
+  const sunLift = skyState.night ? 18 : 100;
+  const sunOff = skyState.night ? 70 : -55;
+  sun.position.set(view.target.x + sunOff, sunLift, view.target.z + (skyState.night ? -36 : 30));
+  sun.target.position.set(view.target.x, 0, view.target.z);
+  sun.target.updateMatrixWorld();
+  updatePlayer(dt);
+  updateCamera();
+  updateInteract(dt);
+  updateLabels();
+  renderer.render(scene, camera);
+}
+frame();
+  </script>
+</body>
+</html>
