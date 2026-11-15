@@ -71,6 +71,23 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
     pointer-events: none;
   }
+  #cycle {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 6;
+    padding: 4px 12px;
+    background: rgba(18, 16, 12, 0.88);
+    border: 1px solid var(--gold);
+    color: #f3e2b0;
+    font-size: 16px;
+    letter-spacing: 0.16em;
+    pointer-events: none;
+  }
+  #cycle[data-phase="night"] {
+    color: #d7e4ff;
+    border-color: #8aa4d4;
+  }
   #labels { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
   .npc-tag, .npc-say {
     position: absolute;
@@ -211,6 +228,7 @@
   </header>
   <div class="stage" id="stage">
     <div id="bag">背包　木头 0　木板 0　木棍 0</div>
+    <div id="cycle" data-phase="day">白天</div>
     <div id="prompt" hidden>按 E</div>
     <div id="orders" hidden>
       <b id="orderName">人</b>
@@ -274,6 +292,8 @@ let seeding = true;
 let selectedNpc = null;
 let genNoteAt = 0;
 const bagEl = document.getElementById("bag");
+const cycleEl = document.getElementById("cycle");
+let cycleShown = "";
 const promptEl = document.getElementById("prompt");
 let deleteMode = false;
 const interactables = [];
@@ -490,17 +510,26 @@ function updateDayNight(elapsed) {
   const t = ((elapsed % cycle) + cycle) % cycle;
   const night = t >= DAY_PHASE;
   skyState.night = night;
-  skyState.fog.set(night ? 0x10182c : 0xd5e4f2);
+  skyState.fog.set(night ? 0x24344f : 0xd5e4f2);
+  if (cycleEl) {
+    const label = night ? "黑夜" : "白天";
+    if (cycleShown !== label) {
+      cycleShown = label;
+      cycleEl.textContent = label;
+      cycleEl.dataset.phase = night ? "night" : "day";
+    }
+  }
+  renderer.toneMappingExposure = night ? 1.28 : 1.08;
   if (!skyMat) return;
-  skyMat.uniforms.topC.value.set(night ? "#070b18" : "#2f639e");
-  skyMat.uniforms.horC.value.set(night ? "#1c2744" : "#d7e7f6");
-  skyMat.uniforms.botC.value.set(night ? "#10141c" : "#c5d2b0");
-  skyMat.uniforms.sunDir.value.set(night ? 0.42 : -0.45, night ? 0.22 : 0.78, night ? -0.25 : 0.28).normalize();
-  sun.intensity = night ? 0.22 : 2.6;
-  sun.color.set(night ? 0xb7c4e4 : 0xfff2d8);
-  fill.intensity = night ? 0.14 : 0.72;
-  fill.color.set(night ? 0x1a2748 : 0xd7ebff);
-  fill.groundColor.set(night ? 0x12160f : 0x6d8a48);
+  skyMat.uniforms.topC.value.set(night ? "#12182e" : "#2f639e");
+  skyMat.uniforms.horC.value.set(night ? "#3a4e72" : "#d7e7f6");
+  skyMat.uniforms.botC.value.set(night ? "#1a2230" : "#c5d2b0");
+  skyMat.uniforms.sunDir.value.set(night ? 0.42 : -0.45, night ? 0.42 : 0.78, night ? -0.25 : 0.28).normalize();
+  sun.intensity = night ? 0.7 : 2.6;
+  sun.color.set(night ? 0xc9d6f2 : 0xfff2d8);
+  fill.intensity = night ? 0.46 : 0.72;
+  fill.color.set(night ? 0x4d6494 : 0xd7ebff);
+  fill.groundColor.set(night ? 0x2a3324 : 0x6d8a48);
   if (water.material && water.material.color) {
     water.material.color.set(night ? 0x143246 : 0x2f7594);
     water.material.opacity = night ? 0.9 : 0.78;
