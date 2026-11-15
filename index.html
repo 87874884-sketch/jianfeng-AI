@@ -913,6 +913,11 @@ function buildCastle(g) {
   addStair(stair2);
   addFloor(mid, stair1);
   addFloor(top, stair2);
+  const lamp = new THREE.Group();
+  buildLamp(lamp);
+  lamp.position.set(-6, top + 0.14, 7);
+  lamp.userData.role = "balcony-lamp";
+  g.add(lamp);
   const corners = [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]];
   for (let i = 0; i < corners.length; i++) {
     const cx = corners[i][0];
@@ -3461,6 +3466,29 @@ window.__godsProbe = {
     y: Math.round(o.mesh.position.y * 10) / 10,
     z: Math.round(o.mesh.position.z * 10) / 10
   })),
+  balconyLamps: () => {
+    const out = [];
+    objects.forEach((o) => {
+      if (!o.spec || o.spec.id !== "castle") return;
+      o.mesh.updateWorldMatrix(true, true);
+      o.mesh.traverse((n) => {
+        if (!n.userData || n.userData.role !== "balcony-lamp") return;
+        const p = new THREE.Vector3();
+        n.getWorldPosition(p);
+        let light = 0;
+        n.traverse((c) => {
+          if (c.isPointLight) light = c.intensity;
+        });
+        out.push({
+          x: Math.round(p.x * 10) / 10,
+          y: Math.round(p.y * 10) / 10,
+          z: Math.round(p.z * 10) / 10,
+          light
+        });
+      });
+    });
+    return out;
+  },
   use: () => useInteract(),
   craft: (id) => craft(id),
   near: () => {
