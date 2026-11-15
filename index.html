@@ -343,6 +343,7 @@ const mods = [];
 let terrainDirty = false;
 
 const raycaster = new THREE.Raycaster();
+const groundRay = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const clock = new THREE.Clock();
 
@@ -871,6 +872,10 @@ function buildCastle(g) {
   addBox(sideW, H, T, -hw + sideW / 2, H / 2, hd - T / 2, stone, { minX: -hw, maxX: -gate / 2, minZ: hd - T, maxZ: hd });
   addBox(sideW, H, T, hw - sideW / 2, H / 2, hd - T / 2, stone, { minX: gate / 2, maxX: hw, minZ: hd - T, maxZ: hd });
   addBox(gate, H - 5, T, 0, 5 + (H - 5) / 2, hd - T / 2, stone, null);
+  const gateDoor = mesh(new THREE.BoxGeometry(gate - 0.12, 4.7, 0.18), new THREE.MeshStandardMaterial({ color: 0x2c3238, roughness: 0.32, metalness: 0.28 }));
+  gateDoor.position.set(0, 2.35, hd - T / 2);
+  g.add(gateDoor);
+  blocks.push({ minX: -gate / 2, maxX: gate / 2, minZ: hd - T, maxZ: hd });
   const gap = 3.2;
   const span = (W - gap) / 2;
   addBox(span, H, T, -hw + span / 2, H / 2, 0, dark, { minX: -hw, maxX: -gap / 2, minZ: -T / 2, maxZ: T / 2 });
@@ -1608,9 +1613,27 @@ function updateSplashes(dt) {
   }
 }
 
-function supportY(o) {
-  const bed = sampleHeight(o.mesh.position.x, o.mesh.position.z);
-  let y = o.floats ? Math.max(bed, WATER) : bed;
+function standY(x, z, feetY) {
+  let y = sampleHeight(x, z);
+  const above = feetY == null ? y : Math.max(y, feetY);
+  groundRay.set(new THREE.Vector3(x, above + 30, z), new THREE.Vector3(0, -1, 0));
+  const hit = groundRay.intersectObject(terrain, false)[0];
+  if (hit) y = Math.max(y, hit.point.y);
+  const feet = feetY == null ? y : feetY;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (!o.castle || !o.resting) continue;
+    const rise = castleRise(o, x, z, feet);
+    if (rise == null) continue;
+    y = Math.max(y, o.mesh.position.y + rise);
+  }
+  return y;
+}
+
+function supportY(o, hint) {
+  const feet = hint != null ? hint : o.mesh.position.y;
+  let y = standY(o.mesh.position.x, o.mesh.position.z, feet);
+  if (o.floats) y = Math.max(y, WATER);
   for (let i = 0; i < objects.length; i++) {
     const other = objects[i];
     if (other === o || !other.resting || !other.solid) continue;
@@ -1620,6 +1643,7 @@ function supportY(o) {
     const stand = Math.max(0.25, Math.min(o.radius || 0.4, other.radius) * 0.5);
     if (horiz <= stand) y = Math.max(y, other.mesh.position.y + other.top);
   }
+  if (o.foot) y -= o.foot;
   return y;
 }
 
@@ -1719,11 +1743,12 @@ function spawn(spec, x, z, opt) {
   scene.add(group);
   const box = new THREE.Box3().setFromObject(group);
   const measured = Math.max(0.2, box.max.y - Math.min(0, box.min.y));
+  const foot = Math.min(0, box.min.y - group.position.y);
   const o = {
     spec, mesh: group, radius: spec.radius, top: measured,
     solid: spec.solid !== false, behavior: spec.behavior || "fall",
     floats: !!spec.floats, splashed: false,
-    resting: false, vy: 0, phase: Math.random() * 6, baseY: 0
+    resting: false, vy: 0, phase: Math.random() * 6, baseY: 0, foot: foot
   };
   if (group.userData.shell) o.shell = group.userData.shell;
   if (group.userData.castle) o.castle = group.userData.castle;
@@ -1743,7 +1768,7 @@ function spawn(spec, x, z, opt) {
     o.sayT = 0;
     o.wave = 0;
     o.held = false;
-    group.position.y = sampleHeight(px, pz);
+    group.position.y = supportY(o, opt.feet != null ? opt.feet : sampleHeight(px, pz));
     o.resting = true;
     if (isPerson(o)) {
       o.npcName = opt.name || giveName(spec);
@@ -1764,11 +1789,11 @@ function spawn(spec, x, z, opt) {
   } else if (o.behavior === "float") {
     group.position.y = WATER - 0.05;
     o.resting = true;
-  } else if (opt.settle) {
-    group.position.y = supportY(o);
+  } else if (opt.settle || (opt.feet != null && opt.feet > sampleHeight(px, pz) + 0.35)) {
+    group.position.y = supportY(o, opt.feet != null ? opt.feet : sampleHeight(px, pz));
     o.resting = true;
   } else {
-    const bed = supportY(o);
+    const bed = supportY(o, opt.feet != null ? opt.feet : sampleHeight(px, pz));
     group.position.y = (!o.floats && bed < WATER - 0.15) ? Math.max(bed + 4, WATER + 2.4) : bed + 4;
   }
   return o;
@@ -1848,13 +1873,19 @@ function addTerrainFeature(spec, x, z) {
   terrainDirty = true;
 }
 
+function aimedPoint() {
+  const targets = [terrain];
+  for (let i = 0; i < objects.length; i++) if (objects[i].castle) targets.push(objects[i].mesh);
+  const hits = raycaster.intersectObjects(targets, true);
+  return hits.length ? hits[0].point : null;
+}
+
 function lookPoint() {
   const origin = camera.position.clone();
   const dir = new THREE.Vector3();
   camera.getWorldDirection(dir);
   raycaster.set(origin, dir);
-  const hits = raycaster.intersectObject(terrain, false);
-  return hits[0] ? hits[0].point : null;
+  return aimedPoint();
 }
 
 function pointFromEvent(ev) {
@@ -1862,8 +1893,7 @@ function pointFromEvent(ev) {
   pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObject(terrain, false);
-  return hits[0] ? hits[0].point : null;
+  return aimedPoint();
 }
 
 const sharedMats = new Set([woodMat, barkMat, leafMat, leafMat2, stoneMat, plasterMat, metalMat, glassMat]);
@@ -1907,7 +1937,7 @@ function renderBag() {
 
 function placeInFront(spec) {
   const dist = 2.4;
-  spawn(spec, view.target.x - Math.sin(view.yaw) * dist, view.target.z - Math.cos(view.yaw) * dist, { yaw: view.yaw });
+  spawn(spec, view.target.x - Math.sin(view.yaw) * dist, view.target.z - Math.cos(view.yaw) * dist, { yaw: view.yaw, feet: body.y });
 }
 
 function craft(id) {
@@ -2120,11 +2150,11 @@ function interactUnderEvent(ev) {
   return hits.length ? interactFromNode(hits[0].object) : null;
 }
 
-function castleRise(o, x, z) {
+function castleRise(o, x, z, feetY) {
   const p = worldToLocal(o, x, z);
   const c = o.castle;
   if (p.x < -c.hw || p.x > c.hw || p.z < -c.hd || p.z > c.hd) return null;
-  const localY = body.y - o.mesh.position.y;
+  const localY = (feetY == null ? body.y : feetY) - o.mesh.position.y;
   let best = 0;
   const stairs = c.stairs || (c.stair ? [c.stair] : []);
   for (let i = 0; i < stairs.length; i++) {
@@ -2145,15 +2175,7 @@ function castleRise(o, x, z) {
 }
 
 function surfaceY(x, z) {
-  let y = sampleHeight(x, z);
-  for (let i = 0; i < objects.length; i++) {
-    const o = objects[i];
-    if (!o.castle || !o.resting) continue;
-    const rise = castleRise(o, x, z);
-    if (rise == null) continue;
-    y = Math.max(y, o.mesh.position.y + rise);
-  }
-  return y;
+  return standY(x, z, body.y);
 }
 
 function updateBody(dt) {
@@ -2537,7 +2559,7 @@ function createFromText(text) {
       const x = focus.x + Math.cos(ang) * dist;
       const z = focus.z + Math.sin(ang) * dist;
       if (spec.terrain) addTerrainFeature(spec, x, z);
-      else spawn(spec, x, z, { yaw: view.yaw });
+      else spawn(spec, x, z, { yaw: view.yaw, feet: focus.y });
     }
     said.push(numWord(n) + spec.unit + spec.label);
     lastMentioned = spec;
@@ -2550,7 +2572,7 @@ function placeSelected(point) {
   const held = byId[HOTBAR[selected].id];
   if (!held) return;
   if (held.terrain) addTerrainFeature(held, point.x, point.z);
-  else spawn(held, point.x, point.z);
+  else spawn(held, point.x, point.z, { feet: point.y });
 }
 
 function dropHeld() {
@@ -2564,7 +2586,7 @@ function dropHeld() {
   const x = view.target.x - Math.sin(view.yaw) * reach;
   const z = view.target.z - Math.cos(view.yaw) * reach;
   if (held.terrain) addTerrainFeature(held, x, z);
-  else spawn(held, x, z, { yaw: view.yaw });
+  else spawn(held, x, z, { yaw: view.yaw, feet: body.y });
 }
 
 function findShore(cx, cz) {
@@ -2932,7 +2954,7 @@ function updateWander(o, dt) {
   if (o.wave > 0) o.wave = Math.max(0, o.wave - dt);
   if (o.sayT > 0) o.sayT = Math.max(0, o.sayT - dt);
   const floor = wanderGround(o.mesh.position.x, o.mesh.position.z);
-  let stand = floor == null ? sampleHeight(o.mesh.position.x, o.mesh.position.z) : floor;
+  let stand = standY(o.mesh.position.x, o.mesh.position.z, o.mesh.position.y);
   const person = isPerson(o);
   const pdx = view.target.x - o.mesh.position.x;
   const pdz = view.target.z - o.mesh.position.z;
@@ -3131,9 +3153,9 @@ function updateWander(o, dt) {
     o.mesh.position.z = nz;
     o.phase += dt * 8;
   }
-  const gy = wanderGround(o.mesh.position.x, o.mesh.position.z);
+  const gy = standY(o.mesh.position.x, o.mesh.position.z, o.mesh.position.y);
   const moved = o.mesh.position.x !== px || o.mesh.position.z !== pz;
-  o.mesh.position.y = (gy == null ? sampleHeight(o.mesh.position.x, o.mesh.position.z) : gy) + (moved ? Math.abs(Math.sin(o.phase)) * 0.035 : 0);
+  o.mesh.position.y = gy + (moved ? Math.abs(Math.sin(o.phase)) * 0.035 : 0);
   poseWalker(o, moved);
 }
 
@@ -3432,7 +3454,7 @@ window.__godsProbe = {
   setTarget: (x, z) => view.target.set(x, 0, z),
   sample: (x, z) => sampleHeight(x, z),
   water: WATER,
-  spawn: (id, x, z) => spawn(byId[id], x, z, { settle: true, yaw: 0 }),
+  spawn: (id, x, z, y) => spawn(byId[id], x, z, { settle: true, yaw: 0, feet: y }),
   generation: () => GENERATION_ON,
   dayNight: (elapsed) => {
     if (elapsed != null) updateDayNight(elapsed);
@@ -3456,7 +3478,9 @@ window.__godsProbe = {
   people: () => objects.filter(isPerson).map((o) => ({
     name: o.npcName, order: o.order, life: o.life, house: !!o.house,
     foe: o.foe ? o.foe.npcName : null,
-    x: o.mesh.position.x, z: o.mesh.position.z
+    x: Math.round(o.mesh.position.x * 10) / 10,
+    y: Math.round(o.mesh.position.y * 10) / 10,
+    z: Math.round(o.mesh.position.z * 10) / 10
   })),
   player: () => ({ visible: player.visible, kids: player.children.length, mode: view.mode }),
   removeNear: () => tryRemove(removalTarget()),
